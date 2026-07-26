@@ -33,7 +33,12 @@ planted-defect validation plan.
 
 ## Status
 
-Skeleton under active development (July 2026). Not yet usable.
+v0 engine working (July 2026): exact point-to-mesh distance (brute-force
+verified), held-out metrics and intrinsic checks validated against planted
+defects on a synthetic scroll (null controls silent, every defect class
+detected by the intended metric), split/score/intrinsic/compare CLI covered by
+end-to-end tests, loader validated on 500/500 real PHerc. Paris 4 verified
+patches. Pending before first release: a demonstration on a real fit run.
 
 ## Acknowledgments
 
