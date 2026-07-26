@@ -61,7 +61,7 @@ reports nothing.]
 
 **Links**
 
-- Repository: [PLACEHOLDER github.com/Nicodol/fitbench], MIT, CI on
+- Repository: https://github.com/Nicodol/fitbench, MIT, CI on
   Linux/Windows/macOS.
 - DESIGN.md documents metrics, protocol, and validation; report examples in
   the repo.
