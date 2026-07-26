@@ -31,7 +31,7 @@ class WindingFamilySoup:
     winding_ids: list[int]
 
     @classmethod
-    def from_family(cls, family: dict[int, QuadSurface]) -> "WindingFamilySoup":
+    def from_family(cls, family: dict[int, QuadSurface]) -> WindingFamilySoup:
         if not family:
             raise ValueError("empty winding family")
         vertices, faces, face_wids = [], [], []

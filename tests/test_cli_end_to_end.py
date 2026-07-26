@@ -2,8 +2,6 @@
 
 import json
 
-import numpy as np
-
 from fitbench.cli import main
 from fitbench.io_tifxyz import save_tifxyz
 from fitbench.metrics import score_patches

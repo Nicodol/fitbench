@@ -3,8 +3,8 @@
 import json
 
 import numpy as np
-import tifffile
 import pytest
+import tifffile
 
 from fitbench.io_tifxyz import INVALID, load_run_windings, load_tifxyz, split_combined
 

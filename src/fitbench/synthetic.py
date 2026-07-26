@@ -127,7 +127,7 @@ def collapse_gap(
         raise ValueError("collapse_gap needs the inner neighbor in the family")
     out = {w: QuadSurface(s.zyxs.copy(), s.scale) for w, s in family.items()}
     cols = _theta_columns(family[winding], theta_band)
-    cy, cx = center_yx
+    del center_yx  # kept for API symmetry; the interpolation is center-free
     target = out[winding].zyxs
     inner = out[winding - 1].zyxs
     for j in cols:

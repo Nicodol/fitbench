@@ -17,8 +17,8 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from fitbench.geometry import TriangleSoup, surface_distance  # noqa: E402
-from fitbench.io_tifxyz import load_tifxyz  # noqa: E402
+from fitbench.geometry import TriangleSoup, surface_distance
+from fitbench.io_tifxyz import face_boundary_mask, load_tifxyz
 
 CORE = ("meta.json", "x.tif", "y.tif", "z.tif")
 
@@ -58,22 +58,24 @@ def main() -> int:
         try:
             patch = load_tifxyz(d)
             partner = load_tifxyz(partner_dir)
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            print(f"skip {d.name} vs {partner_dir.name}: {exc!r}")
             continue
         v, f = partner.triangles()
         soup = TriangleSoup(v, f)
+        boundary = face_boundary_mask(partner)
         centers, _ = patch.quad_centers()
         pts = centers.astype(np.float64)
-        # Restrict to points inside the partner's bbox (the overlap zone),
-        # with a small margin; otherwise non-overlapping area dominates.
-        lo = partner.valid_zyxs.min(axis=0) - 4
-        hi = partner.valid_zyxs.max(axis=0) + 4
-        sel = np.all((pts >= lo) & (pts <= hi), axis=1)
+        result = surface_distance(pts, soup)
+        # True overlap zone, unbiased by distance: keep only points whose
+        # closest partner face lies in the partner's interior. A point outside
+        # the partner's footprint necessarily projects onto its rim.
+        sel = ~boundary[result.face_idx]
         if sel.sum() < 20:
             continue
-        result = surface_distance(pts[sel], soup)
-        med.append(float(np.median(result.dist)))
-        p95.append(float(np.percentile(result.dist, 95)))
+        dist = result.dist[sel]
+        med.append(float(np.median(dist)))
+        p95.append(float(np.percentile(dist, 95)))
         checked += 1
 
     print(f"pairs checked: {checked}")

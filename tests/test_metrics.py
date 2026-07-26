@@ -76,7 +76,7 @@ def test_determinism(clean_family, heldout_patches):
 
 def test_radial_drift_detected_by_distance_not_topology(clean_family, heldout_patches):
     drifted = radial_drift(clean_family, amplitude=3.0)
-    scores, agg = score_patches(heldout_patches, drifted, tau=6.0)
+    _scores, agg = score_patches(heldout_patches, drifted, tau=6.0)
     # Distance grows to the drift amplitude at the worst theta...
     assert agg["dist_p99"] > 2.0
     # ...bounded by the amplitude plus chordal slack...

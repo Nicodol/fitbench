@@ -132,6 +132,21 @@ def load_tifxyz(path: str | Path) -> QuadSurface:
     return surface
 
 
+def face_boundary_mask(surface: QuadSurface) -> np.ndarray:
+    """Per-face flag aligned with ``triangles()``: does the face belong to a
+    boundary quad (a valid quad with at least one invalid or out-of-bounds
+    4-neighbor)? Useful to decide whether a closest point lies in a surface's
+    interior or merely on its rim."""
+    valid = surface.valid_quad_mask
+    padded = np.pad(valid, 1, constant_values=False)
+    all_neighbors = (
+        padded[:-2, 1:-1] & padded[2:, 1:-1] & padded[1:-1, :-2] & padded[1:-1, 2:]
+    )
+    boundary = valid & ~all_neighbors
+    per_quad = boundary.ravel()[valid.ravel().nonzero()[0]]
+    return np.concatenate([per_quad, per_quad])
+
+
 def save_tifxyz(surface: QuadSurface, path: str | Path, uuid: str | None = None) -> Path:
     """Write a QuadSurface as a tifxyz directory (x/y/z.tif + meta.json).
 

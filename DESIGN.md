@@ -98,13 +98,16 @@ The windcheck standard, adopted:
   ~6% carry `mask.tif`; **none carry `winding.tif`**, so the winding-agreement
   metric is optional in practice and the consistency metric does the heavy
   lifting on real data.
-- Overlap null-control (150 pairs from `overlapping.json`): 70.7% of pairs
-  have median inter-patch distance <= 2 vox, confirming the distance engine on
-  real data. The long tail is a heuristic artifact: restricting to the
-  partner's bbox includes non-overlap area (bboxes can even span neighboring
-  windings). A clean real null-control needs the true mutual overlap zone
-  (e.g. points within tau of the partner), or the exact semantics of
-  `overlapping.json` from villa. To refine before quoting numbers publicly.
+- Overlap null-control (150 pairs from `overlapping.json`), with the overlap
+  zone defined geometrically (points whose closest partner face is interior,
+  not rim): the typical pair agrees to sub-voxel across its zone (per-pair p95
+  distance: median 0.80 vox), and 80.7% of pairs have median <= 2 vox. The
+  remaining tail clusters around ~18 vox, close to one winding pitch at full
+  resolution (~173 um / 7.91 um per vox = ~22 vox): the working hypothesis is
+  that `overlapping.json` also lists radially adjacent patches on neighboring
+  windings, which a same-sheet check correctly reports at ~pitch distance. To
+  confirm against villa's overlap semantics before quoting publicly; the
+  sub-voxel head already validates loader + distance engine on real data.
 
 ## Non-goals v0
 
