@@ -132,6 +132,40 @@ def load_tifxyz(path: str | Path) -> QuadSurface:
     return surface
 
 
+def save_tifxyz(surface: QuadSurface, path: str | Path, uuid: str | None = None) -> Path:
+    """Write a QuadSurface as a tifxyz directory (x/y/z.tif + meta.json).
+
+    Mirrors villa's ``save_tifxyz`` metadata (scale, bbox, format, uuid) and
+    writes ``winding.tif`` when the surface carries a winding grid.
+    """
+    path = Path(path)
+    path.mkdir(parents=True, exist_ok=True)
+    zyxs = surface.zyxs
+    tifffile.imwrite(path / "x.tif", zyxs[..., 2].astype(np.float32))
+    tifffile.imwrite(path / "y.tif", zyxs[..., 1].astype(np.float32))
+    tifffile.imwrite(path / "z.tif", zyxs[..., 0].astype(np.float32))
+    valid = surface.valid_vertex_mask
+    bbox = (
+        [surface.valid_zyxs.min(axis=0)[::-1].tolist(), surface.valid_zyxs.max(axis=0)[::-1].tolist()]
+        if valid.any()
+        else [[-1.0] * 3, [-1.0] * 3]
+    )
+    meta = {
+        "scale": np.asarray(surface.scale, dtype=float).tolist(),
+        "bbox": bbox,
+        "format": "tifxyz",
+        "type": "seg",
+        "uuid": uuid or surface.uuid or path.name,
+    }
+    if surface.winding_column_ranges is not None:
+        meta["winding_column_ranges"] = surface.winding_column_ranges
+        meta["component_winding_ids"] = surface.component_winding_ids
+    (path / "meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
+    if isinstance(surface.winding, np.ndarray):
+        tifffile.imwrite(path / "winding.tif", surface.winding.astype(np.float32))
+    return path
+
+
 def split_combined(surface: QuadSurface) -> dict[int, QuadSurface]:
     """Split a combined QuadSurface into per-winding surfaces.
 
