@@ -89,6 +89,23 @@ The windcheck standard, adopted:
 - PHerc. Paris 4 spiral-input dataset (~50 GB, HF `scrollprize/datasets` bucket, syncing).
 - Candidate second scroll: PHerc1218 public input pack (vesuvius-sheet-tools thread).
 
+## Real-data notes (night of 2026-07-26/27, PHerc. Paris 4 verified patches)
+
+- Real patch TIFFs are LZW-compressed: `imagecodecs` is a hard dependency.
+- Loader validated on 500/500 randomly sampled complete patch dirs (of 3,272
+  synced at the time; 4,923 listed). Grids range 4x4 to 1056x460 (median
+  ~35x44); valid-vertex fraction median 1.00, p10 0.87; z spans 416..18,255;
+  ~6% carry `mask.tif`; **none carry `winding.tif`**, so the winding-agreement
+  metric is optional in practice and the consistency metric does the heavy
+  lifting on real data.
+- Overlap null-control (150 pairs from `overlapping.json`): 70.7% of pairs
+  have median inter-patch distance <= 2 vox, confirming the distance engine on
+  real data. The long tail is a heuristic artifact: restricting to the
+  partner's bbox includes non-overlap area (bboxes can even span neighboring
+  windings). A clean real null-control needs the true mutual overlap zone
+  (e.g. points within tau of the partner), or the exact semantics of
+  `overlapping.json` from villa. To refine before quoting numbers publicly.
+
 ## Non-goals v0
 
 Ink-based anything, VC3D plugin, GPU, fixing fits (we only measure). Later maybe: CI-friendly
