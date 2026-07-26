@@ -1,0 +1,44 @@
+# fitbench
+
+**Held-out geometric evaluation for whole-scroll surface fits.**
+
+Work in progress, targeting the "devise better evaluation suites" item of the Vesuvius Challenge
+[2026 open problems](https://scrollprize.org/2026_open_problems).
+
+## Why
+
+Whole-scroll fits (villa's `fit_spiral`, and other producers of per-winding surface sets) are
+currently judged by *constraint satisfaction*: what fraction of the fit's own inputs the final
+surface honors, measured through the fit's own fitted transform. That number answers "did the
+optimizer satisfy its constraints", not "is this surface geometrically right", and it cannot see
+errors in regions where no constraint was given. A fit with no patches at all has nothing to
+dissatisfy.
+
+`fitbench` evaluates a fit *from its output meshes alone*, against **held-out verified patches**
+that the fit never saw, plus intrinsic topology checks that need no ground truth at all. It is
+producer-agnostic: anything that emits `tifxyz` winding surfaces can be scored, and two runs can
+be compared metric by metric.
+
+## What it does (v0 scope)
+
+- **Held-out accuracy**: surface-distance percentiles, single-winding consistency, winding-number
+  agreement, normal agreement, and coverage of each held-out patch.
+- **Intrinsic checks**: radial monotonicity of the winding family around the umbilicus,
+  inter-winding spacing distribution, self-intersection indicators, validity stats.
+- **Run comparison**: the same report for two run folders, with deltas.
+- Reports as JSON plus PNG overlays. CPU-only, no torch, no GPU, no checkpoint needed.
+
+See [DESIGN.md](DESIGN.md) for the metric definitions, the held-out split protocol, and the
+planted-defect validation plan.
+
+## Status
+
+Skeleton under active development (July 2026). Not yet usable.
+
+## Acknowledgments
+
+- The `tifxyz` conventions and the satisfaction metrics this tool complements live in
+  [ScrollPrize/villa](https://github.com/ScrollPrize/villa) (`volume-cartographer/scripts/spiral`).
+- [windcheck](https://github.com/joe-carr-data/windcheck) pioneered label-free consistency checking
+  for individual traced segments; fitbench targets whole-scroll fit runs and run-to-run comparison.
+- The vesuvius-sheet-tools thread's public PHerc1218 input pack is a candidate second test case.

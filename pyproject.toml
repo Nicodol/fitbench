@@ -1,0 +1,35 @@
+[project]
+name = "fitbench"
+version = "0.1.0.dev0"
+description = "Held-out geometric evaluation for whole-scroll surface fits (Vesuvius Challenge)"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.14"
+dependencies = [
+    "numpy>=2.1",
+    "scipy>=1.14",
+    "tifffile>=2024.8.30",
+    "matplotlib>=3.9",
+]
+
+[project.scripts]
+fitbench = "fitbench.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fitbench"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
