@@ -94,6 +94,34 @@ def test_surface_distance_matches_brute_force():
     )
 
 
+def test_kd_candidate_bound_is_required():
+    """Adversarial case where the nearest CENTROID is the wrong answer.
+
+    A huge triangle whose surface passes at distance 1 from the query point,
+    but whose centroid is ~33 away, hides behind a decoy cluster of tiny
+    triangles with centroids at ~5. With k_seed=1 the seed stage picks the
+    decoy; only the r_max-bounded radius search can find the true face. This
+    is the test that fails if the exactness bound is broken."""
+    tris = []
+    for k in range(6):
+        base = np.array([5.0 + 0.01 * k, 0.0, 0.0])
+        tris.append([base, base + [0, 0.1, 0], base + [0, 0, 0.1]])
+    tris.append([
+        np.array([100.0, -100.0, 1.0]),
+        np.array([100.0, 100.0, 1.0]),
+        np.array([-100.0, 0.0, 1.0]),
+    ])
+    vertices = np.concatenate([np.asarray(t) for t in tris])
+    faces = np.arange(len(vertices)).reshape(-1, 3)
+    soup = TriangleSoup(vertices, faces)
+
+    p = np.array([[0.0, 0.0, 0.0]])
+    result = surface_distance(p, soup, k_seed=1)
+    ref, _ = brute_force_distance(p, soup)
+    np.testing.assert_allclose(result.dist, ref, atol=1e-12)
+    assert abs(result.dist[0] - 1.0) < 1e-9
+
+
 def test_surface_distance_zero_on_surface():
     soup = wavy_soup()
     # Vertices themselves are on the surface: distance must be ~0.

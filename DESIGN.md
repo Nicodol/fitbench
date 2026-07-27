@@ -89,6 +89,20 @@ The windcheck standard, adopted:
 - PHerc. Paris 4 spiral-input dataset (~50 GB, HF `scrollprize/datasets` bucket, syncing).
 - Candidate second scroll: PHerc1218 public input pack (vesuvius-sheet-tools thread).
 
+## Mutation audit (2026-07-27)
+
+The tests themselves are audited by mutation: `scripts/mutation_check.py`
+injects eight deliberate bugs one at a time (flipped geometry sign, broken
+KD-bound exactness, invalid quads treated as valid, scrambled z/y/x axes,
+inverted tolerance comparison, disabled crossing alarm, swapped angle
+convention, split that never holds out) and requires the suite to fail on
+every one, then pass again unmutated. First run: 7/8 detected; the survivor
+(KD-bound break) exposed a fixture too benign to need the bound, so an
+adversarial mesh test (far-centroid nearest surface behind a decoy cluster)
+was added; now 8/8 detected. Integration fix found by the same audit pass:
+villa's real `umbilicus.json` is a dict with `control_points`, now parsed and
+unit-tested.
+
 ## Real-data notes (night of 2026-07-26/27, PHerc. Paris 4 verified patches)
 
 - Real patch TIFFs are LZW-compressed: `imagecodecs` is a hard dependency.

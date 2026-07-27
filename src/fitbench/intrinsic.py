@@ -26,13 +26,19 @@ from .io_tifxyz import QuadSurface
 def resolve_umbilicus(umbilicus, z_values: np.ndarray) -> np.ndarray:
     """Umbilicus (y, x) per z sample.
 
-    Accepts a constant (y, x) pair, a callable z -> (y, x), or a polyline
-    (K, 3) of [z, y, x] rows (interpolated in z). Defaults to the origin.
+    Accepts a constant (y, x) pair, a callable z -> (y, x), a polyline (K, 3)
+    of [z, y, x] rows, or villa's umbilicus.json structure (a dict with a
+    'control_points' list of {z, y, x} objects). Defaults to the origin.
     """
     if umbilicus is None:
         return np.zeros((len(z_values), 2))
     if callable(umbilicus):
         return np.asarray([umbilicus(z) for z in z_values], dtype=np.float64)
+    if isinstance(umbilicus, dict):
+        pts = umbilicus.get("control_points")
+        if not pts:
+            raise ValueError("umbilicus dict must contain a non-empty 'control_points' list")
+        umbilicus = [[p["z"], p["y"], p["x"]] for p in pts]
     umb = np.asarray(umbilicus, dtype=np.float64)
     if umb.shape == (2,):
         return np.broadcast_to(umb, (len(z_values), 2)).copy()

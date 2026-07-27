@@ -85,3 +85,10 @@ def test_resolve_umbilicus_forms():
     np.testing.assert_allclose(
         resolve_umbilicus(poly, z), [[0, 0], [2, 4], [4, 8]], atol=1e-12
     )
+    # villa's real umbilicus.json structure (dict with control_points)
+    villa = {"control_points": [
+        {"z": 0.0, "y": 1.0, "x": 2.0}, {"z": 20.0, "y": 5.0, "x": 10.0},
+    ]}
+    np.testing.assert_allclose(
+        resolve_umbilicus(villa, z), [[1, 2], [3, 6], [5, 10]], atol=1e-12
+    )
