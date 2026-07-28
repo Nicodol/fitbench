@@ -1,4 +1,4 @@
-# fitbench compare
+# parrhesia compare
 
 | metric | A | B | B - A |
 |---|---|---|---|

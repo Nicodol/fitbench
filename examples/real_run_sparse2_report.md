@@ -1,6 +1,6 @@
-# fitbench report
+# parrhesia report
 
-- fitbench: 0.1.0.dev0
+- parrhesia: 0.1.0.dev0
 - meshes: G:\projets\vesuvius\runs\sparse2\2026-07-28_s1_slice-10600-10900_0-patch_sparse2\meshes\fitted_sparse2
 - patches: G:\projets\vesuvius\windows\z10600_10900\heldout_strict
 - variant: spliced
