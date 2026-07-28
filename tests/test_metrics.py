@@ -276,15 +276,185 @@ def test_nan_vertices_are_invalid_not_fatal(clean_family):
     patch = sample_patch(11, PITCH, (0.4, 1.6), (8.0, 52.0))
     zyxs = patch.zyxs.copy()
     zyxs[:2, :3] = np.nan
-    from parrhesia.io_tifxyz import QuadSurface as QS
-
-    with_nan = QS(zyxs=zyxs, scale=patch.scale)
-    # Simulate the loader's normalization (load_tifxyz maps non-finite to the
-    # sentinel); scoring the normalized surface must succeed.
+    # The loader maps non-finite to the sentinel; scoring the normalized
+    # surface must succeed on the remaining valid quads.
     norm = zyxs.copy()
     norm[~np.isfinite(norm).all(axis=-1)] = INVALID
-    normalized = QS(zyxs=norm, scale=patch.scale)
+    normalized = QuadSurface(zyxs=norm, scale=patch.scale)
     s = score_patch(normalized, WindingFamilySoup.from_family(clean_family), patch_id="nan")
     assert s.n_points < patch.quad_centers()[0].shape[0]
     assert np.isfinite(s.point_dist).all()
-    del with_nan
+
+
+def test_sheet_consistency_multi_turn_band(clean_family):
+    """A perfect band following the spiral across two full turns is ONE
+    sheet. A fixed-width window over u misreads any patch longer than the
+    window (real Paris 4 bands span 12+ turns); the component-based
+    definition must score it 1.0."""
+    band = sample_patch(
+        11, PITCH, (0.2, 0.2 + 4 * np.pi), (8.0, 52.0), rows=6, cols=120
+    )
+    s = score_patch(band, WindingFamilySoup.from_family(clean_family), patch_id="band")
+    assert s.dist_p50 < 0.5
+    assert s.single_winding_consistency < 0.7  # structural: the band spans windings
+    assert s.sheet_consistency == 1.0  # but it is one continuous sheet
+
+
+def test_leakage_union_over_multiple_inputs(clean_family):
+    """The leakage measurement must be the union over ALL fit inputs,
+    verified against an independent per-input minimum: a soup broken past
+    input number one flatters the unseen numbers (review-2 blocking finding)."""
+    from parrhesia.geometry import TriangleSoup, surface_distance
+
+    held = {
+        "a": sample_patch(11, PITCH, (0.4, 1.4), (8.0, 52.0), rows=8, cols=12),
+        "b": sample_patch(13, PITCH, (2.0, 3.0), (8.0, 52.0), rows=8, cols=16),
+        "c": sample_patch(14, PITCH, (4.0, 5.0), (8.0, 52.0), rows=8, cols=20),
+    }
+    inputs = {
+        "i1": sample_patch(11, PITCH, (0.4, 1.4), (8.0, 52.0), rows=7, cols=11,
+                           normal_jitter=0.1),
+        "i2": sample_patch(13, PITCH, (2.0, 3.0), (8.0, 52.0), rows=6, cols=9,
+                           normal_jitter=0.1),
+        "i3": sample_patch(14, PITCH, (4.0, 5.0), (8.0, 52.0), rows=10, cols=7,
+                           normal_jitter=0.1),
+    }
+    scores, agg = score_patches(
+        held, clean_family, input_family=inputs, unseen_min_dist=2.0
+    )
+    all_ref = []
+    for s in scores:
+        dmin = np.full(s.n_points, np.inf)
+        for surf in inputs.values():
+            v, f = surf.triangles()
+            soup = TriangleSoup(v.astype(np.float64), f)
+            dmin = np.minimum(dmin, surface_distance(s.point_zyx, soup).dist)
+        np.testing.assert_allclose(s.point_input_dist, dmin, atol=1e-9)
+        assert s.n_points_unseen == int((dmin > 2.0).sum())
+        all_ref.append(dmin)
+    ref = np.concatenate(all_ref)
+    leak = agg["evidence_leakage"]
+    for t in (0.5, 1.0, 2.0, 6.0):
+        assert leak[f"frac_within_{t:g}_vox"] == float((ref <= t).mean())
+
+
+def test_absolute_distance_anchor(clean_family):
+    """A patch displaced radially by a known delta must read that delta,
+    bracketed both sides: this pins any consistent rescaling of the
+    published distances, which per-defect threshold tests cannot."""
+    delta = 3.7
+    patch = sample_patch(12, PITCH, (0.6, 1.4), (8.0, 52.0))
+    zyxs = patch.zyxs.astype(np.float64)
+    r = np.linalg.norm(zyxs[..., 1:], axis=-1, keepdims=True)
+    zyxs[..., 1:] = zyxs[..., 1:] * (r + delta) / r
+    moved = QuadSurface(zyxs.astype(np.float32), patch.scale)
+    s = score_patch(moved, WindingFamilySoup.from_family(clean_family), patch_id="m")
+    slack = 1.5 * chordal_bound({"p": patch}, clean_family) + 0.01
+    assert delta - slack <= s.dist_p50 <= delta + slack
+    assert delta - slack <= s.dist_max <= delta + slack
+
+
+def test_aggregates_are_point_weighted_and_min_is_min(clean_family):
+    """Two patches of very different sizes and different consistencies: the
+    weighted aggregate must be exact and differ from the unweighted one, and
+    min must be a min. All-1.0 null fixtures cannot pin any of this."""
+    small_bad = sample_patch(11, PITCH, (0.5, 2.5), (8.0, 52.0), rows=4, cols=8)
+    big_good = sample_patch(13, PITCH, (2.0, 3.4), (8.0, 52.0), rows=12, cols=24)
+    swapped = swap_band(clean_family, 11, 12, theta_band=(1.0, 2.0))
+    scores, agg = score_patches({"bad": small_bad, "good": big_good}, swapped)
+    by_id = {s.patch_id: s for s in scores}
+    assert by_id["bad"].sheet_consistency < 1.0
+    assert by_id["good"].sheet_consistency == 1.0
+
+    order = [s.patch_id for s in scores]
+    w = np.array([by_id[p].n_points for p in order], dtype=np.float64)
+    for metric in ("sheet_consistency", "single_winding_consistency"):
+        vals = np.array([getattr(by_id[p], metric) for p in order])
+        weighted = float(np.average(vals, weights=w))
+        assert agg[f"mean_{metric}"] == weighted
+        assert abs(weighted - float(np.mean(vals))) > 1e-9
+        assert agg[f"min_{metric}"] == float(vals.min())
+        assert agg[f"min_{metric}"] < agg[f"mean_{metric}"]
+    angle_vals = np.array([by_id[p].normal_angle_p90_deg for p in order])
+    assert agg["normal_angle_p90_deg"] == float(np.average(angle_vals, weights=w))
+
+
+def test_engine_errors_propagate(clean_family, monkeypatch):
+    """Only PatchSkip may be skipped; any other failure must propagate
+    loudly instead of silently shrinking the evaluation set."""
+    import parrhesia.metrics as m
+
+    patch = sample_patch(11, PITCH, (0.4, 1.6), (8.0, 52.0))
+
+    def boom(pts, soup, **kw):
+        raise RuntimeError("engine exploded")
+
+    monkeypatch.setattr(m, "surface_distance", boom)
+    with pytest.raises(RuntimeError, match="engine exploded"):
+        m.score_patches({"p": patch}, clean_family)
+
+
+def test_tau_flows_into_fractions(clean_family):
+    """tau must actually be used: a patch sitting ~4 vox off the surface is
+    fully outside tau=2 and fully inside tau=6."""
+    patch = sample_patch(12, PITCH, (0.6, 1.4), (8.0, 52.0))
+    zyxs = patch.zyxs.astype(np.float64)
+    r = np.linalg.norm(zyxs[..., 1:], axis=-1, keepdims=True)
+    zyxs[..., 1:] = zyxs[..., 1:] * (r + 4.0) / r
+    moved = QuadSurface(zyxs.astype(np.float32), patch.scale)
+    s2, agg2 = score_patches({"p": moved}, clean_family, tau=2.0)
+    s6, agg6 = score_patches({"p": moved}, clean_family, tau=6.0)
+    assert agg2["tau"] == 2.0 and agg6["tau"] == 6.0
+    assert agg2["frac_within_tau"] == 0.0
+    assert agg6["frac_within_tau"] == 1.0
+    # The per-patch fraction must use tau too, not a hardcoded default.
+    assert s2[0].frac_within_tau == 0.0
+    assert s6[0].frac_within_tau == 1.0
+
+
+def test_unseen_min_dist_flows_into_selection(clean_family):
+    """The unseen threshold must flow through: an input sitting ~1.5 vox from
+    the evidence flips between seen and unseen as the threshold crosses it."""
+    held = sample_patch(11, PITCH, (0.4, 1.6), (8.0, 52.0))
+    zyxs = held.zyxs.astype(np.float64)
+    r = np.linalg.norm(zyxs[..., 1:], axis=-1, keepdims=True)
+    zyxs[..., 1:] = zyxs[..., 1:] * (r + 1.5) / r
+    inp = QuadSurface(zyxs.astype(np.float32), held.scale)
+    s1, agg1 = score_patches(
+        {"h": held}, clean_family, input_family={"i": inp}, unseen_min_dist=1.0
+    )
+    s2, agg2 = score_patches(
+        {"h": held}, clean_family, input_family={"i": inp}, unseen_min_dist=2.0
+    )
+    assert s1[0].n_points_unseen == s1[0].n_points
+    assert s2[0].n_points_unseen == 0
+    assert agg1["unseen"]["n_points"] == s1[0].n_points
+    assert agg1["unseen"]["unseen_min_dist"] == 1.0
+    assert agg2["unseen"]["n_points"] == 0
+    assert agg2["unseen"]["n_patches_excluded"] == 1
+
+
+def test_min_unseen_points_boundary(clean_family):
+    """The 8-point floor for entering the unseen aggregate is load-bearing:
+    7 unseen points exclude a patch, 14 include it."""
+    held = sample_patch(11, PITCH, (0.4, 1.6), (8.0, 52.0), rows=8, cols=12)
+    # Inputs identical to the held patch over a theta prefix: uncovered quad
+    # columns sit >= one column pitch (~12 vox) from the input surface.
+    cover_all_but_one = sample_patch(11, PITCH, (0.4, 1.46), (8.0, 52.0), rows=8, cols=20)
+    cover_all_but_two = sample_patch(11, PITCH, (0.4, 1.35), (8.0, 52.0), rows=8, cols=20)
+
+    s1, agg1 = score_patches(
+        {"h": held}, clean_family, input_family={"i": cover_all_but_one},
+        unseen_min_dist=2.0,
+    )
+    assert s1[0].n_points_unseen == 7
+    assert agg1["unseen"]["n_patches"] == 0
+    assert agg1["unseen"]["n_patches_excluded"] == 1
+
+    s2, agg2 = score_patches(
+        {"h": held}, clean_family, input_family={"i": cover_all_but_two},
+        unseen_min_dist=2.0,
+    )
+    assert s2[0].n_points_unseen == 14
+    assert agg2["unseen"]["n_patches"] == 1
+    assert agg2["unseen"]["n_points"] == 14

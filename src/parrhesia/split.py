@@ -36,20 +36,26 @@ _HASHED_FILES = ("meta.json", "x.tif", "y.tif", "z.tif", "mask.tif", "winding.ti
 _GEOMETRY_FILES = ("x.tif", "y.tif", "z.tif", "mask.tif", "winding.tif")
 
 # Family key: strip the suffixes villa's tooling appends to derived exports of
-# the same parent patch. Unknown naming schemes fall through unchanged (each
-# patch is then its own family).
+# the same parent patch, repeatedly until stable (suffixes stack in any
+# order: a_flatboi_region_2, a_region_2_flatboi). Unknown naming schemes fall
+# through unchanged (each patch is then its own family). Name-level grouping
+# is a heuristic; the geometry-hash merge in ``split_patches`` is the
+# guarantee for byte-identical twins the names miss.
 _FAMILY_CUTS = (
     re.compile(r"_sel_.*$"),
     re.compile(r"_region_\d+$"),
-    re.compile(r"_flatboi$"),
-    re.compile(r"_(lasagna|growpatch)$"),
+    re.compile(r"_v\d+(\.tifxyz)?$"),
+    re.compile(r"_(flatboi|copy|front|back|new|lasagna|growpatch)$"),
 )
 
 
 def family_key(name: str) -> str:
-    for rx in _FAMILY_CUTS:
-        name = rx.sub("", name)
-    return name
+    while True:
+        before = name
+        for rx in _FAMILY_CUTS:
+            name = rx.sub("", name)
+        if name == before or not name:
+            return before if not name else name
 
 
 def _hash_files(patch_dir: Path, names: tuple[str, ...]) -> str:
@@ -102,9 +108,35 @@ def split_patches(
             "(the windowed stratification cannot hold out a majority)"
         )
 
+    content_hashes = {d.name: patch_content_hash(d) for d in patch_dirs}
+    geometry_hashes = {d.name: patch_geometry_hash(d) for d in patch_dirs}
+
+    # Name-level families first, then merge families that share a geometry
+    # hash: byte-identical twins under unrelated names must never straddle the
+    # split (they would poison the fit side and deadlock the audit).
+    key_of = {d.name: family_key(d.name) for d in patch_dirs}
+    merged_key: dict[str, str] = {}
+
+    def resolve(k: str) -> str:
+        while merged_key.get(k, k) != k:
+            k = merged_key[k]
+        return k
+
+    by_geometry: dict[str, str] = {}
+    for d in patch_dirs:
+        k = resolve(key_of[d.name])
+        h = geometry_hashes[d.name]
+        other = by_geometry.get(h)
+        if other is None:
+            by_geometry[h] = k
+        else:
+            other = resolve(other)
+            if other != k:
+                merged_key[k] = other
     families: dict[str, list[int]] = {}
     for i, d in enumerate(patch_dirs):
-        families.setdefault(family_key(d.name), []).append(i)
+        families.setdefault(resolve(key_of[d.name]), []).append(i)
+
     fam_keys = list(families)
     z_centers = [_z_center(d) for d in patch_dirs]
     fam_z = {k: float(np.mean([z_centers[i] for i in families[k]])) for k in fam_keys}
@@ -112,27 +144,41 @@ def split_patches(
     order = sorted(range(len(fam_keys)), key=lambda i: (fam_z[fam_keys[i]], fam_keys[i]))
     window = max(2, round(1.0 / heldout_frac))
     rng = np.random.default_rng(seed)
+    blocks = [order[start : start + window] for start in range(0, len(order), window)]
+    if len(blocks) > 1 and len(blocks[-1]) < window:
+        # A short tail block would over-hold-out the z extremes (a block of
+        # size 1 is held out at every seed); fold it into the previous block.
+        blocks[-2].extend(blocks.pop())
     heldout_idx: set[int] = set()
-    for start in range(0, len(order), window):
-        block = order[start : start + window]
+    for block in blocks:
         picked = fam_keys[block[int(rng.integers(0, len(block)))]]
         heldout_idx.update(families[picked])
 
-    assignments, content_hashes, geometry_hashes, family_of = {}, {}, {}, {}
+    assignments, family_of = {}, {}
     for side in ("fit", "heldout"):
         (out_dir / side).mkdir(parents=True, exist_ok=True)
     for i, d in enumerate(patch_dirs):
         side = "heldout" if i in heldout_idx else "fit"
         assignments[d.name] = side
-        content_hashes[d.name] = patch_content_hash(d)
-        geometry_hashes[d.name] = patch_geometry_hash(d)
-        key = family_key(d.name)
+        key = resolve(key_of[d.name])
         if key != d.name:
             family_of[d.name] = key
         dest = out_dir / side / d.name
         if dest.exists():
             shutil.rmtree(dest)
         shutil.copytree(d, dest)
+
+    # Self-check: the guarantee the manifest sells is that no held-out
+    # geometry exists on the fit side. With the merge above this cannot
+    # happen; fail loudly rather than write a poisoned split if it ever does.
+    heldout_geo = {geometry_hashes[d.name] for i, d in enumerate(patch_dirs) if i in heldout_idx}
+    fit_geo = {geometry_hashes[d.name] for i, d in enumerate(patch_dirs) if i not in heldout_idx}
+    poisoned = heldout_geo & fit_geo
+    if poisoned:
+        raise RuntimeError(
+            f"split self-check failed: {len(poisoned)} geometry hash(es) present "
+            "on both sides; family grouping missed a duplicate"
+        )
 
     manifest = {
         "source": str(src_dir),
@@ -194,19 +240,24 @@ def audit_fit_inputs(manifest_path: str | Path, fit_inputs_dir: str | Path) -> l
 
 def audit_scored_patches(
     manifest_path: str | Path, patches_dir: str | Path
-) -> tuple[list[str], int]:
+) -> tuple[list[str], int, int]:
     """Check that the patches about to be scored are the manifest's held-out
-    side. Returns (unlisted patch names, number of listed patches). Scoring the
-    fit's own inputs under a held-out label is the mistake this catches.
+    side. Returns (unlisted patch names, number of listed patches, total
+    held-out patches in the manifest). Scoring the fit's own inputs under a
+    held-out label is the mistake this catches. The scan is flat (immediate
+    children), matching exactly what the scorer will load; nested directories
+    the scorer would never read must not influence this audit.
     """
     manifest = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
     heldout = _heldout_hash_index(manifest)
     use_geometry = "geometry_sha256" in manifest
     unlisted, listed = [], 0
-    for d in _iter_patch_dirs(Path(patches_dir)):
+    for d in sorted(Path(patches_dir).iterdir()):
+        if not d.is_dir() or not (d / "meta.json").exists():
+            continue
         h = patch_geometry_hash(d) if use_geometry else patch_content_hash(d)
         if h in heldout:
             listed += 1
         else:
             unlisted.append(d.name)
-    return unlisted, listed
+    return unlisted, listed, len(heldout)

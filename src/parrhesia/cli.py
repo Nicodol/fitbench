@@ -53,8 +53,16 @@ def cmd_score(args) -> int:
 
     audit_meta: dict = {}
     if args.manifest:
-        unlisted, listed = audit_scored_patches(args.manifest, args.patches)
+        unlisted, listed, n_heldout = audit_scored_patches(args.manifest, args.patches)
         audit_meta["scored_patches_listed_heldout"] = listed
+        audit_meta["manifest_n_heldout"] = n_heldout
+        if listed < n_heldout:
+            print(
+                f"note: scoring {listed} of the manifest's {n_heldout} held-out "
+                "patches (a z window legitimately restricts this; a cherry-pick "
+                "would look the same, so the counts are recorded in the report).",
+                file=sys.stderr,
+            )
         if unlisted and not args.allow_unlisted_patches:
             print(
                 "REFUSED: --patches contains directories that are not the "
@@ -95,6 +103,21 @@ def cmd_score(args) -> int:
     if args.fit_inputs:
         input_family, input_errors = _load_patches_dir(Path(args.fit_inputs))
         if input_errors:
+            if not args.allow_input_load_errors:
+                print(
+                    f"REFUSED: {len(input_errors)} fit-input patch(es) could not "
+                    "be loaded, so the leakage measurement would silently skip "
+                    "them and flatter the unseen numbers:",
+                    file=sys.stderr,
+                )
+                for name, err in list(input_errors.items())[:10]:
+                    print(f"  - {name}: {err}", file=sys.stderr)
+                print(
+                    "fix the inputs, or pass --allow-input-load-errors to "
+                    "accept the weaker guarantee.",
+                    file=sys.stderr,
+                )
+                return 5
             audit_meta["fit_inputs_load_errors"] = len(input_errors)
     z_range = None
     if args.z_range:
@@ -219,7 +242,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument(
         "--allow-unlisted-patches", action="store_true",
-        help="score --patches even if some are not the manifest's held-out side",
+        help="proceed even if --patches contains directories that are not the "
+        "manifest's held-out side (they are still scored like the rest; the "
+        "unlisted count is recorded in the report meta)",
+    )
+    p.add_argument(
+        "--allow-input-load-errors", action="store_true",
+        help="proceed even if some --fit-inputs patches cannot be loaded "
+        "(weakens the leakage measurement; the error count is recorded)",
     )
     p.add_argument("--overlays", type=int, default=2, help="number of overlay PNG slices")
     p.add_argument("--no-intrinsic", action="store_true")

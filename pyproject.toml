@@ -1,6 +1,6 @@
 [project]
 name = "parrhesia"
-version = "0.1.0.dev0"
+version = "0.3.0"
 description = "Held-out geometric evaluation for whole-scroll surface fits (Vesuvius Challenge)"
 readme = "README.md"
 license = { text = "MIT" }

@@ -24,6 +24,14 @@ def test_family_key_strips_derived_suffixes():
     assert family_key("same_wrap000882_growpatch") == "same_wrap000882"
     assert family_key("same_wrap000882_lasagna") == "same_wrap000882"
     assert family_key("some_unrelated_patch") == "some_unrelated_patch"
+    # Suffixes stack in any order and must strip to a fixpoint (real names
+    # from the collection: _copy, _front/_back, versioned exports).
+    assert family_key("5753_-1_flatboi_copy") == "5753_-1"
+    assert family_key("752931_front") == "752931"
+    assert family_key("752931_back") == "752931"
+    assert family_key("patch_v3.tifxyz") == "patch"
+    assert family_key("a_flatboi_region_2") == "a"
+    assert family_key("a_region_2_flatboi") == "a"
 
 
 def save_patch_set(src, specs):
@@ -63,12 +71,14 @@ def test_families_never_straddle_the_split(tmp_path):
 
 def test_split_is_z_stratified(tmp_path):
     """With frac 0.25, every consecutive-z window of 4 families holds out
-    exactly one (the documented stratification, asserted for once)."""
+    exactly one (the documented stratification, asserted for once). The
+    theta values are deliberately scrambled against z so that stratifying on
+    the wrong bbox axis (x or y) produces a different grouping and fails."""
     specs = {}
     z_of = {}
     for i in range(16):
         name = f"p{i:02d}"
-        specs[name] = (11 + (i % 4), 0.3 + 0.1 * i)
+        specs[name] = (11 + (i % 4), 0.3 + 0.35 * ((i * 7) % 16))
         z_of[name] = None
     src = tmp_path / "src"
     for i, (name, (w, t0)) in enumerate(specs.items()):
@@ -83,6 +93,76 @@ def test_split_is_z_stratified(tmp_path):
         window = by_z[start : start + 4]
         held = [n for n in window if manifest["assignments"][n] == "heldout"]
         assert len(held) == 1, f"window {window} holds out {held}"
+
+    # Pin the whole documented draw with an independent reference
+    # implementation: sort by z-center, consecutive windows, one seeded pick
+    # per window. Kills any axis mixup or de-seeded pick that happens to keep
+    # one-per-window by coincidence.
+    import numpy as np
+
+    names = sorted(specs)  # split_patches iterates directories name-sorted
+    order = sorted(range(16), key=lambda i: (z_of[names[i]] + 20.0, names[i]))
+    rng = np.random.default_rng(5)
+    expected = set()
+    for start in range(0, 16, 4):
+        block = order[start : start + 4]
+        expected.add(names[block[int(rng.integers(0, len(block)))]])
+    actual = {n for n, side in manifest["assignments"].items() if side == "heldout"}
+    assert actual == expected
+
+
+def test_seed_changes_the_split(tmp_path):
+    """Two different seeds must produce different held-out picks: a split
+    that ignores its seed (always the same family per window) is not a
+    seeded draw."""
+    src = save_patch_set(
+        tmp_path / "src",
+        {f"p{i:02d}": (11 + (i % 4), 0.3 + 0.4 * i) for i in range(16)},
+    )
+    m1 = split_patches(src, tmp_path / "s1", heldout_frac=0.25, seed=1)
+    m2 = split_patches(src, tmp_path / "s2", heldout_frac=0.25, seed=2)
+    assert m1["assignments"] != m2["assignments"]
+
+
+def test_byte_identical_twins_never_straddle(tmp_path):
+    """Two byte-identical patches under name-unrelated directories must land
+    on the same side (geometry-hash family merge); otherwise the split
+    poisons its own fit side and the audit refuses it forever. The twins are
+    adjacent in the draw order and the window is 2, so without the merge
+    they would straddle at every seed: the kill is deterministic."""
+    import shutil
+
+    src = save_patch_set(
+        tmp_path / "src",
+        {
+            "alpha_one": (11, 0.4),
+            "beta": (12, 1.2),
+            "gamma": (13, 2.0),
+            "delta": (14, 3.0),
+        },
+    )
+    # Name-unrelated for family_key, adjacent to alpha_one in name order.
+    shutil.copytree(src / "alpha_one", src / "alpha_zzz")
+    for seed in (1, 2, 3):
+        manifest = split_patches(src, tmp_path / f"split{seed}", heldout_frac=0.5, seed=seed)
+        a = manifest["assignments"]["alpha_one"]
+        b = manifest["assignments"]["alpha_zzz"]
+        assert a == b, f"twins straddle the split at seed {seed}"
+        assert audit_fit_inputs(
+            tmp_path / f"split{seed}" / "split_manifest.json",
+            tmp_path / f"split{seed}" / "fit",
+        ) == []
+
+
+def test_short_tail_block_is_merged(tmp_path):
+    """17 families at frac 0.25: without merging, the tail block of one
+    family would be held out at every seed; merged, the split holds out 4."""
+    src = save_patch_set(
+        tmp_path / "src",
+        {f"q{i:02d}": (11 + (i % 4), 0.3 + 0.3 * i) for i in range(17)},
+    )
+    manifest = split_patches(src, tmp_path / "split", heldout_frac=0.25, seed=3)
+    assert manifest["n_heldout"] == 4
 
 
 def test_heldout_frac_majority_is_rejected(tmp_path):
@@ -132,10 +212,10 @@ def test_audit_scored_patches_flags_non_heldout(tmp_path):
     split_patches(src, tmp_path / "split", heldout_frac=0.34, seed=2)
     manifest_path = tmp_path / "split" / "split_manifest.json"
 
-    unlisted, listed = audit_scored_patches(manifest_path, tmp_path / "split" / "heldout")
-    assert unlisted == [] and listed >= 2
-    unlisted, listed = audit_scored_patches(manifest_path, tmp_path / "split" / "fit")
-    assert len(unlisted) >= 2 and listed == 0
+    unlisted, listed, total = audit_scored_patches(manifest_path, tmp_path / "split" / "heldout")
+    assert unlisted == [] and listed >= 2 and listed == total
+    unlisted, listed, total = audit_scored_patches(manifest_path, tmp_path / "split" / "fit")
+    assert len(unlisted) >= 2 and listed == 0 and total >= 2
 
 
 def test_split_determinism_with_families(tmp_path):

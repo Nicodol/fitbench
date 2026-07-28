@@ -54,7 +54,7 @@ identifies the failure mode.
 deliberate bugs one at a time and requires the suite to fail on each, then
 pass unmutated. The list covers the geometry engine, the metrics and their
 published aggregates, the CLI glue, the intrinsic checks, and the v0.2
-split/audit/leakage code. **Result: 23/23 detected.**
+split/audit/leakage code. **Result: 39/39 detected.**
 
 Honest notes, because this is where the value is. The first round (8
 mutations) scored 7/8; the survivor exposed a fixture too benign to need the
@@ -62,13 +62,22 @@ KD exactness bound, and the adversarial mesh case above was added. On
 2026-07-28 an independent test-quality review ran eight counter-mutations of
 its own and **all eight survived** the then-current suite (dead normal metric,
 published aggregates replaced by constants, inverted CLI `--z-range`, widened
-epsilon guard, dead inflated-gap indicator, ignored umbilicus). Each now has a
-dedicated test and a mutation entry. One of those new tests was itself first
-too symmetric to discriminate (two equal-sized patches) and was caught by the
-extended audit. The same review passes also caught two real integration gaps
-now fixed and tested: villa's `umbilicus.json` `control_points` structure, and
-the shared-seam column of combined surfaces (a half-open split dropped one
-bridging quad per seam and inflated distances there).
+epsilon guard, dead inflated-gap indicator, ignored umbilicus). Each got a
+dedicated test and a mutation entry. A second review round then attacked the
+fixes with **fifteen fresh counter-mutations, of which thirteen survived**;
+the dominant pattern was fixtures pinned at a null point (weighted equals
+unweighted, min equals max, one input equals many, passed value equals its
+default). Each survivor now has a test built to discriminate: asymmetric
+patch sizes, a known displacement delta bracketed from both sides, a
+multi-input leakage reference recomputed independently inside the test, and a
+reference implementation of the whole split draw. Two of the new tests were
+themselves first too symmetric to discriminate and were caught by the
+extended audit: the audit polices the tests, including the new ones. The same
+review passes also caught real integration gaps, all fixed and tested:
+villa's `umbilicus.json` `control_points` structure, the shared-seam column
+of combined surfaces, a sheet-consistency definition that misread many-turn
+bands as switches, and a split that byte-identical twins under unrelated
+names could poison.
 
 ## 4. Real data (PHerc. Paris 4)
 
@@ -103,11 +112,14 @@ Paris 4 data, verified patches overlap heavily: our own adversarial review
 measured that with the v1 name-level split, 54.8% of the "held-out" area of
 the demo window lies within 0.5 vox of some fit-side input patch (66 of its 98
 held-out patches have a `_sel_` sibling of the same parent on the fit side).
-That channel is invisible to any name- or hash-level check. v0.2 therefore
-measures leakage geometrically at scoring time: distance of every scored point
-to the union of the fit's *actual* input surfaces, reported as a profile, and
-an **unseen** aggregate over points farther than 2 vox from every input. The
-demonstration below quotes the unseen numbers, not the naive ones.
+That channel is invisible to any name- or hash-level check. Since v0.2,
+every run scored with `--fit-inputs` therefore measures leakage geometrically:
+distance of every scored point to the union of the fit's *actual* input
+surfaces, reported as a profile, and an **unseen** aggregate over points
+farther than 2 vox from every input; an input patch that fails to load is a
+hard refusal (exit 5), because silently skipping it would flatter the unseen
+numbers. The demonstration below quotes the unseen numbers, not the naive
+ones.
 
 Split manifests shipped: the family-grouped
 [`examples/PHercParis4_v2_split_manifest.json`](examples/PHercParis4_v2_split_manifest.json)
@@ -147,7 +159,7 @@ judged weak by both. The sparse run is the regime the project explicitly
 wants to support (fits from minimal verified inputs; villa #1237 was closed
 as won't-fix for exactly that reason), and there patch satisfaction is an
 empty denominator while the held-out **median** distance and within-tau are
-statistically indistinguishable from the dense run: a distance-only check
+practically indistinguishable from the dense run: a distance-only check
 would also see nothing. What actually separates them is sheet identity
 (consistency 0.40 vs 0.24: the sparse surface passes near papyrus but far
 more often on the wrong winding) and catastrophic tails (p99 at 212 vox: ten
@@ -164,7 +176,7 @@ Corrections made in v0.2, stated plainly, because they are the method working:
 - The previously published dense numbers were computed on all 49,458 sealed
   points, 54.8% of which the fit had effectively seen through overlapping
   input selections (found by our own adversarial review, and now measured by
-  the tool itself on every scored run). On leaked evidence the dense run
+  the tool itself on every run scored with the fit's inputs). On leaked evidence the dense run
   looked better than it is: its apparent normal-agreement advantage
   (35.0 vs 48.8 deg in the old table) inverts on unseen evidence
   (49.9 vs 41.8 deg). The headline contrast (sheet identity and tails)
@@ -183,8 +195,8 @@ The villa satisfaction rows are verbatim log excerpts:
 
 ```bash
 uv sync --group dev
-uv run pytest -q                      # 60 tests: engine, defect matrix, e2e CLI
-uv run python scripts/mutation_check.py   # 23/23 injected bugs must be detected
+uv run pytest -q                      # 74 tests: engine, defect matrix, e2e CLI
+uv run python scripts/mutation_check.py   # 39/39 injected bugs must be detected
 uv run python scripts/real_data_smoke.py <verified_patches_dir> 500
 uv run python scripts/real_overlap_check.py <verified_patches_dir> 150
 ```

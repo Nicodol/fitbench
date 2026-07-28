@@ -54,17 +54,20 @@ resulting numbers (planted-defect matrix, mutation audit, real-data controls).
 
 ## Status
 
-v0.2 (July 2026): exact point-to-mesh distance (verified against brute force
+v0.3 (July 2026): exact point-to-mesh distance (verified against brute force
 over every triangle and against an independent dense-sampling reference),
 held-out metrics and intrinsic checks validated against planted defects on a
 synthetic scroll (null controls silent, every defect class detected by the
 intended metric), split/score/intrinsic/compare CLI covered by end-to-end
 tests, loader validated on 500/500 real PHerc. Paris 4 verified patches, and a
 demonstration on two real `fit_spiral` runs (see VALIDATION.md, section 6).
-The 2026-07-28 external-style review round (adversarial code review, claims
-audit, upstream check, test-quality audit) led to v0.2: the evidence-leakage
-audit, the seam-aware sheet consistency, the family-grouped split, and a test
-suite hardened until 22/22 injected bugs are detected.
+Two external-style review rounds (adversarial code review, claims audit
+against artifacts, upstream check, test-quality audit with its own
+counter-mutations) shaped v0.2 and v0.3: the evidence-leakage audit, the
+component-based sheet consistency (robust to patches spanning many turns),
+the family-grouped split with geometry-hash twin merging, and a test suite
+hardened until 39/39 injected bugs are detected. VALIDATION.md records what
+each round caught, including in our own numbers.
 
 ## Acknowledgments
 

@@ -47,13 +47,16 @@ Held-out, per patch (then aggregated):
   nearest winding surface (closest-point-on-triangle over the winding's valid quads, KD-tree
   accelerated). Report p50/p90/p99 and fraction within tau (tau default 6 vox, matching the
   satisfaction tolerance for comparability).
-- **sheet consistency** (seam-aware): a patch is one piece of papyrus, so its points must land on
-  one *continuous sheet*. Winding ids alone cannot express that at the theta seam, where a patch
-  legitimately spans windings w and w+1 (that is what winding indexing means on a spiral), so each
-  face carries a continuous winding coordinate `u = winding_id + column / columns` (grid columns
-  follow the spiral and are continuous across seams) and consistency is the largest fraction of
-  the patch's points that fit within one window of 0.9 turns. 1.0 for a seam-crossing patch on a
-  perfect fit; ~0.5 for a 50/50 sheet switch.
+- **sheet consistency** (component-based): a patch is one piece of papyrus, so its points must
+  land on one *continuous sheet*. Winding ids alone cannot express that at the theta seam, where
+  a patch legitimately spans windings w and w+1 (that is what winding indexing means on a
+  spiral), and no fixed-width window over a winding coordinate can either: real Paris 4 bands
+  follow the spiral for 12+ turns and would be misread as inconsistent. So each face carries a
+  continuous winding coordinate `u = winding_id + column / columns` (grid columns follow the
+  spiral and are continuous across seams), grid-adjacent quads whose u agree within half a turn
+  are connected, components separated by holes but sitting on the same turn are merged, and
+  consistency is the fraction of points on the largest resulting sheet. 1.0 for a seam-crossing
+  or many-turn patch on a perfect fit; ~0.5 for a 50/50 sheet switch, wherever it happens.
 - **single-winding consistency** (raw): fraction of the patch's area assigned to its modal
   winding id. Kept alongside because it is the simplest possible definition, but it has a
   structural floor at the seam; the seam-aware metric above is the headline.
@@ -79,9 +82,13 @@ Run comparison: same report for runs A and B, plus a delta table keyed by metric
 ## Held-out protocol
 
 `parrhesia split`: deterministic, seeded split of a verified-patch directory into `fit/` and
-`heldout/` (default 80/20, stratified by z). Patches are grouped into *families* before splitting
-(villa's `*_sel_*` exports, `_region_NNN` crops, `_flatboi` variants and `same_wrapNNNNNN_*`
-producers are near-duplicate geometry of one parent), and a whole family goes to one side.
+`heldout/` (default 80/20, stratified by z; a short tail window is folded into its neighbor so
+the z extremes are not over-held-out). Patches are grouped into *families* before splitting
+(villa's `*_sel_*` exports, `_region_NNN` crops, `_flatboi`/`_copy`/`_front`/`_back` variants and
+`same_wrapNNNNNN_*` producers are near-duplicate geometry of one parent, suffixes stripped to a
+fixpoint), families sharing a geometry hash are merged (byte-identical twins under unrelated
+names must not straddle), and a whole family goes to one side; the writer self-checks that no
+held-out geometry exists on the fit side before writing the manifest.
 `split_manifest.json` records the seed, every assignment, the grouping, and two hashes per patch:
 `content_sha256` (all files) and `geometry_sha256` (geometry files only, immune to metadata
 rewrites). `parrhesia score --manifest --fit-inputs` refuses to score (exit 3) when a held-out
@@ -137,7 +144,8 @@ The windcheck standard, adopted:
 ## Test data
 
 - Synthetic ideal spiral + analytic patches (unit tests, no download).
-- PHerc. Paris 4 spiral-input dataset (~50 GB, HF `scrollprize/datasets` bucket, syncing).
+- PHerc. Paris 4 spiral-input dataset (~50 GB, HF `scrollprize/datasets` bucket, sync complete:
+  4,922/4,922 verified patch dirs).
 - Candidate second scroll: PHerc1218 public input pack (vesuvius-sheet-tools thread).
 
 ## Mutation audit (2026-07-27, extended 2026-07-28)
@@ -157,12 +165,16 @@ unit-tested.
 On 2026-07-28 an independent test-quality review ran its own counter-mutations
 and eight of eight survived the suite (dead normal metric, constant published
 aggregates, inverted CLI z-range, widened epsilon guard, dead inflated-gap
-indicator, ignored umbilicus, and more). Every one of those now has a
-dedicated test and lives in the mutation list, which also covers the v0.2
-leakage/split/seam code; the audit currently stands at 23/23 detected. One of
-the new tests was itself first written too symmetrically to discriminate (two
-equal-sized patches) and was caught by the audit: the audit polices the tests,
-including the new ones.
+indicator, ignored umbilicus, and more). Every one of those got a dedicated
+test and a mutation entry. A second review round then attacked the fixes
+themselves with fifteen fresh counter-mutations, of which thirteen survived:
+the dominant pattern was fixtures pinned at a null point where weighted equals
+unweighted, min equals max, one input equals many, and a passed value equals
+its default. Each survivor now has a test built to discriminate (asymmetric
+sizes, known displacement deltas, reference implementations inside the test),
+and the audit currently stands at 39/39 detected. Two of the new tests were
+themselves first written too symmetrically to discriminate and were caught by
+the audit: the audit polices the tests, including the new ones.
 
 ## Real-data notes (night of 2026-07-26/27, PHerc. Paris 4 verified patches)
 

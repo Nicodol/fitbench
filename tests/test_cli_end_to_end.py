@@ -176,6 +176,82 @@ def test_score_with_fit_inputs_reports_leakage(tmp_path):
     assert "Evidence leakage" in (out / "report.md").read_text()
 
 
+def test_cli_umbilicus_is_plumbed(tmp_path):
+    """The CLI must actually pass --umbilicus into the intrinsic checks: an
+    off-center family reports a sane pitch only with the true axis."""
+    center = (500.0, 700.0)
+    family = make_family(
+        num_windings=6, first_winding=10, pitch=PITCH, z_count=16, center_yx=center
+    )
+    run = save_run(family, tmp_path / "run")
+    patches = {
+        "p0": sample_patch(11, PITCH, (0.4, 1.6), (8.0, 52.0), center_yx=center)
+    }
+    src = save_patches(patches, tmp_path / "patches")
+
+    out_good = tmp_path / "rep_good"
+    rc = main([
+        "score", "--meshes", str(run), "--patches", str(src), "--out", str(out_good),
+        "--variant", "plain", "--overlays", "0", "--umbilicus", "500,700",
+    ])
+    assert rc == 0
+    rep = json.loads((out_good / "report.json").read_text())
+    assert rep["intrinsic"]["n_violations"] == 0
+    assert abs(rep["intrinsic"]["median_pitch"] - PITCH) < 0.5
+
+    out_bad = tmp_path / "rep_bad"
+    rc = main([
+        "score", "--meshes", str(run), "--patches", str(src), "--out", str(out_bad),
+        "--variant", "plain", "--overlays", "0",
+    ])
+    assert rc == 0
+    rep = json.loads((out_bad / "report.json").read_text())
+    wrong = rep["intrinsic"]
+    assert wrong["n_violations"] > 0 or abs(wrong["median_pitch"] - PITCH) > 1.0
+
+
+def test_cli_unseen_min_dist_is_plumbed(tmp_path):
+    """--unseen-min-dist must reach the aggregate, not just the meta echo."""
+    family = make_family(num_windings=6, first_winding=10, pitch=PITCH, z_count=16)
+    run, src, _ = make_all(tmp_path, family)
+    rc = main(["split", "--src", str(src), "--out", str(tmp_path / "split"), "--frac", "0.34"])
+    assert rc == 0
+    out = tmp_path / "rep"
+    rc = main([
+        "score", "--meshes", str(run), "--patches", str(tmp_path / "split" / "heldout"),
+        "--out", str(out), "--variant", "plain", "--overlays", "0",
+        "--fit-inputs", str(tmp_path / "split" / "fit"),
+        "--unseen-min-dist", "0.75",
+    ])
+    assert rc == 0
+    rep = json.loads((out / "report.json").read_text())
+    assert rep["heldout_aggregate"]["unseen"]["unseen_min_dist"] == 0.75
+    assert rep["meta"]["unseen_min_dist"] == 0.75
+
+
+def test_cli_refuses_unloadable_fit_inputs(tmp_path):
+    """A fit-input patch that cannot be loaded silently weakens the leakage
+    guarantee in the flattering direction: hard refusal unless overridden."""
+    family = make_family(num_windings=6, first_winding=10, pitch=PITCH, z_count=16)
+    run, src, _ = make_all(tmp_path, family)
+    rc = main(["split", "--src", str(src), "--out", str(tmp_path / "split"), "--frac", "0.34"])
+    assert rc == 0
+    fit_dir = tmp_path / "split" / "fit"
+    victim = next(d for d in sorted(fit_dir.iterdir()) if d.is_dir())
+    (victim / "z.tif").write_bytes(b"not a tiff")
+
+    args = [
+        "score", "--meshes", str(run), "--patches", str(tmp_path / "split" / "heldout"),
+        "--out", str(tmp_path / "rep"), "--variant", "plain", "--overlays", "0",
+        "--fit-inputs", str(fit_dir),
+    ]
+    assert main(args) == 5
+    rc = main(args + ["--allow-input-load-errors"])
+    assert rc == 0
+    rep = json.loads((tmp_path / "rep" / "report.json").read_text())
+    assert rep["meta"]["fit_inputs_load_errors"] == 1
+
+
 def test_intrinsic_command(tmp_path):
     family = make_family(num_windings=5, first_winding=10, pitch=PITCH)
     run = save_run(family, tmp_path / "run")

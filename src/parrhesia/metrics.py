@@ -7,10 +7,12 @@ run's winding surfaces:
 - surface distance percentiles and fraction within ``tau``;
 - sheet consistency: one physical patch must land on one continuous sheet.
   Winding ids alone cannot express this at the theta seam (a patch legitimately
-  spans windings w and w+1 there), so each face carries a continuous winding
-  coordinate ``u = winding_id + column / columns`` (grid columns follow the
-  spiral and are continuous across seams) and consistency is the largest
-  fraction of a patch's points that fit in one window of 0.9 turns. The raw
+  spans windings w and w+1 there), and no fixed-width window over a winding
+  coordinate can either (real bands follow the spiral for many turns). Each
+  face carries a continuous winding coordinate ``u = winding_id + column /
+  columns``; grid-adjacent quads agreeing within half a turn are connected,
+  same-turn islands are merged, and consistency is the fraction of points on
+  the largest resulting sheet (see ``sheet_components``). The raw
   modal-winding fraction (``single_winding_consistency``) is kept alongside;
 - winding-number agreement, when the patch carries a ``winding.tif`` grid;
 - normal agreement (sign-agnostic angle between patch and matched face);
@@ -33,7 +35,7 @@ from .io_tifxyz import QuadSurface
 
 DEFAULT_TAU = 6.0  # scan voxels; matches satisfaction_distance_tolerance for comparability
 DEFAULT_UNSEEN_MIN_DIST = 2.0  # vox; overlapping inputs agree sub-voxel, sheets sit ~1 pitch apart
-SHEET_WINDOW_TURNS = 0.9  # < 1 so points a full winding apart never share a window
+SHEET_MAX_JUMP_TURNS = 0.5  # adjacent quads farther apart in u than this belong to different sheets
 _MIN_UNSEEN_POINTS = 8  # patches with fewer unseen points are excluded from the unseen aggregate
 
 LEAKAGE_THRESHOLDS = (0.5, 1.0, 2.0, 6.0)
@@ -89,13 +91,70 @@ class WindingFamilySoup:
         )
 
 
-def sheet_consistency(u: np.ndarray, window: float = SHEET_WINDOW_TURNS) -> float:
-    """Largest fraction of points whose continuous winding coordinate fits in
-    one window of ``window`` turns. 1.0 for a patch on one continuous sheet
-    (including across the theta seam); ~0.5 for a 50/50 sheet switch."""
-    u = np.sort(np.asarray(u, dtype=np.float64))
-    right = np.searchsorted(u, u + window, side="right")
-    return float((right - np.arange(len(u))).max() / len(u))
+def sheet_components(
+    u: np.ndarray, quad_idx: np.ndarray, max_jump: float = SHEET_MAX_JUMP_TURNS
+) -> np.ndarray:
+    """Label each scored quad with the continuous sheet it lies on.
+
+    Two grid-adjacent quads share a sheet when their continuous winding
+    coordinates agree to within ``max_jump`` turns; connected components of
+    that relation are sheets as the fit experienced them. A patch spanning
+    many turns stays one component (u varies smoothly along it, across the
+    theta seam included), while a sheet switch cuts the patch at a ~1-turn
+    jump. Components separated by holes but sitting on the same turn (median
+    u within ``max_jump``) are merged, so fragmentation alone is not read as
+    a switch. A fixed-width window over u cannot do this job: it misreads any
+    patch longer than the window as inconsistent (real Paris 4 bands span 12+
+    turns).
+    """
+    from scipy.sparse import coo_matrix
+    from scipy.sparse.csgraph import connected_components
+
+    u = np.asarray(u, dtype=np.float64)
+    n = len(u)
+    if n == 0:
+        return np.zeros(0, dtype=np.int64)
+    rows, cols = quad_idx[:, 0], quad_idx[:, 1]
+    grid = np.full((rows.max() + 2, cols.max() + 2), -1, dtype=np.int64)
+    grid[rows, cols] = np.arange(n)
+    edges_a, edges_b = [], []
+    for da, db in ((1, 0), (0, 1)):
+        a = grid[: grid.shape[0] - da, : grid.shape[1] - db]
+        b = grid[da:, db:]
+        ok = (a >= 0) & (b >= 0)
+        ia, ib = a[ok], b[ok]
+        smooth = np.abs(u[ia] - u[ib]) <= max_jump
+        edges_a.append(ia[smooth])
+        edges_b.append(ib[smooth])
+    ea = np.concatenate(edges_a)
+    eb = np.concatenate(edges_b)
+    adj = coo_matrix((np.ones(len(ea)), (ea, eb)), shape=(n, n))
+    _, labels = connected_components(adj, directed=False)
+
+    # Merge components that sit on the same turn (median u within max_jump):
+    # islands created by holes are not sheet switches.
+    medians = np.array([np.median(u[labels == c]) for c in range(labels.max() + 1)])
+    order = np.argsort(medians)
+    group = np.empty_like(order)
+    g = 0
+    for k, c in enumerate(order):
+        if k > 0 and medians[c] - medians[order[k - 1]] > max_jump:
+            g += 1
+        group[c] = g
+    return group[labels]
+
+
+def sheet_consistency(
+    u: np.ndarray, quad_idx: np.ndarray, max_jump: float = SHEET_MAX_JUMP_TURNS
+) -> float:
+    """Fraction of the patch's points on its largest continuous sheet.
+
+    1.0 for a patch on one continuous sheet, whatever its length in turns
+    (theta-seam crossings included); ~0.5 for a 50/50 sheet switch."""
+    if len(u) < 2:
+        return 1.0
+    labels = sheet_components(u, quad_idx, max_jump=max_jump)
+    return float(np.bincount(labels).max() / len(labels))
 
 
 def _grid_quad_normals(zyxs: np.ndarray) -> np.ndarray:
@@ -135,6 +194,7 @@ class PatchScore:
     point_winding: np.ndarray = field(default=None, repr=False)
     point_zyx: np.ndarray = field(default=None, repr=False)
     point_u: np.ndarray = field(default=None, repr=False)
+    point_sheet: np.ndarray = field(default=None, repr=False)
     point_normal_angle: np.ndarray = field(default=None, repr=False)
     point_input_dist: np.ndarray | None = field(default=None, repr=False)
 
@@ -193,6 +253,14 @@ def score_patch(
     result = surface_distance(pts, family_soup.soup)
     assigned = family_soup.face_winding[result.face_idx]
     u = family_soup.face_u[result.face_idx]
+    sheets = (
+        sheet_components(u, quad_idx)
+        if len(u) >= 2
+        else np.zeros(len(u), dtype=np.int64)
+    )
+    sheet_cons = (
+        float(np.bincount(sheets).max() / len(sheets)) if len(sheets) else 1.0
+    )
 
     windings, counts = np.unique(assigned, return_counts=True)
     modal = int(windings[counts.argmax()])
@@ -237,7 +305,7 @@ def score_patch(
         tau=tau,
         modal_winding=modal,
         single_winding_consistency=consistency,
-        sheet_consistency=sheet_consistency(u),
+        sheet_consistency=sheet_cons,
         normal_angle_p50_deg=float(np.percentile(angles, 50)),
         normal_angle_p90_deg=float(np.percentile(angles, 90)),
         winding_agreement=agreement,
@@ -246,6 +314,7 @@ def score_patch(
         point_winding=assigned,
         point_zyx=pts,
         point_u=u,
+        point_sheet=sheets,
         point_normal_angle=angles,
         point_input_dist=input_dist,
     )
@@ -264,7 +333,11 @@ def _subset_aggregate(scores: list[PatchScore], tau: float, unseen_min_dist: flo
             continue
         dists.append(s.point_dist[mask])
         angles.append(s.point_normal_angle[mask])
-        patch_sheet.append(sheet_consistency(s.point_u[mask]))
+        # Reuse the full-patch sheet labels on the subset: unseen lobes of one
+        # continuous sheet stay one sheet, however far apart the subsampling
+        # left them.
+        labels = s.point_sheet[mask]
+        patch_sheet.append(float(np.bincount(labels).max() / len(labels)))
         patch_weights.append(k)
     if not dists:
         return {

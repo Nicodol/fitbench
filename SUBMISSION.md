@@ -65,12 +65,13 @@ QuadSurfaces with `winding_column_ranges`); producer-agnostic by design.
   and reported as collapsed, not as a false crossing; a planted leaked patch
   is caught by the leakage profile. Null controls are bounded by computed
   chordal-discretization limits, not magic numbers.
-- The tests are themselves audited by mutation (23 injected bugs, all
-  detected, a CI job on three OSes), and the whole package went through an
-  independent-style review round (adversarial code review, claims audit
-  against artifacts, upstream check, test-quality audit) whose findings are
-  documented and fixed in VALIDATION.md, including a public correction of
-  our own first demo numbers.
+- The tests are themselves audited by mutation (39 injected bugs, all
+  detected, a CI job on three OSes), and the whole package went through two
+  independent-style review rounds (adversarial code review, claims audit
+  against artifacts, upstream check, test-quality audit with its own
+  counter-mutations) whose findings are documented and fixed in
+  VALIDATION.md, including a public correction of our own first demo
+  numbers.
 - Real data: the loader reads 500/500 sampled verified patches of PHerc.
   Paris 4; on overlapping verified patches, the typical pair agrees to
   sub-voxel across the geometric overlap zone (per-pair p95 median 0.80 vox),
@@ -93,9 +94,9 @@ to it through overlapping input selections):
   (1,500 steps, 8 GB VRAM), judged weak by both.
 - *Sparse run* (no patches, the minimal-input regime #1237 declares a valid
   use-case): patch satisfaction is an **empty denominator (0/0)**, and the
-  held-out median distance and within-tau are indistinguishable from the
-  dense run (4.47 vox, 67.4%), so a distance-only check would also see
-  nothing. What the held-out suite exposes and localizes: sheet identity
+  held-out median distance and within-tau are practically indistinguishable
+  from the dense run (4.47 vox, 67.4%), so a distance-only check would also
+  see nothing. What the held-out suite exposes and localizes: sheet identity
   degrades (mean consistency 0.40 -> 0.24, the surface passes near papyrus
   but on the wrong windings) and catastrophic tails appear (p99 17.7 -> 212
   vox, max 23.9 -> 330 vox: parts of the window are simply not modeled).
