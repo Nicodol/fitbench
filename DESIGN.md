@@ -151,7 +151,14 @@ The windcheck standard, adopted:
 - **Null controls**: unperturbed fits must produce zero monotonicity violations above tolerance;
   metrics on identical runs must be identical.
 - **Sensitivity floor**: report the smallest planted defect each metric reliably detects.
+  *Done*: `scripts/sensitivity_floor.py`, numbers in VALIDATION.md section 3.
 - Round-trip: same surface read as per-winding dirs vs combined QuadSurface must agree.
+  *Done*: `test_split_combined` pins the shared-seam convention and the quad count from both
+  sides.
+- **Resampling**: report which differences between two runs survive a resample of the scored
+  patches, and which do not. *Done*: `scripts/bootstrap_ci.py`, used on the demo in
+  VALIDATION.md section 6, where it shows that two of our own metrics do not separate that
+  particular pair.
 
 ## Test data
 
