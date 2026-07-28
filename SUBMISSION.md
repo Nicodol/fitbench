@@ -1,6 +1,6 @@
 # Progress prize submission draft (July 2026)
 
-Form-ready text. Fill the [PLACEHOLDER] after the real-fit demo run.
+Form-ready text.
 
 ---
 
@@ -11,11 +11,19 @@ Form-ready text. Fill the [PLACEHOLDER] after the real-fit demo run.
 The 2026 open problems ask for "better evaluation suites" for the spiral fit.
 Today a whole-scroll fit is judged by its satisfaction metrics: the fraction
 of its *own inputs* it honors, measured *through its own fitted transform*,
-computable only with the checkpoint. That leaves three blind spots: regions
-with no constraints are invisible (a zero-patch fit has nothing to fail,
-see villa issue #1237), a systematically wrong deformation moves the
-goalposts with the surface, and a finished run folder (or a surface set from
-another producer, e.g. ScrollFiesta) cannot be scored at all.
+computable only with the checkpoint. That leaves three blind spots: the
+measure degenerates exactly where evidence is sparse (with few or no patches
+in a region there is little or nothing to dissatisfy), a systematically wrong
+deformation moves the goalposts with the surface, and a finished run folder
+(or a surface set from another producer, e.g. ScrollFiesta) cannot be scored
+at all.
+
+The first point matters most for where the project is heading. Fitting with
+minimal verified inputs is an explicitly supported goal (villa #1237 was
+closed as won't-fix precisely because "runs with no patches are a valid
+use-case... we want to be able to fit a spiral with minimal verified
+inputs"). The leaner the inputs, the less constraint satisfaction can say,
+and the more an independent, held-out measure is needed.
 
 **What does the tool do?**
 
@@ -53,11 +61,27 @@ QuadSurfaces with `winding_column_ranges`); producer-agnostic by design.
   with a residual tail near one winding pitch consistent with radially
   adjacent listings.
 
-**Demonstration on a real fit**
+**Demonstration on two real fits (the blind spot, measured)**
 
-[PLACEHOLDER: small-window fit_spiral run, scored held-out; plus the
-zero-patch #1237 scenario detected by intrinsic checks where satisfaction
-reports nothing.]
+Two real `fit_spiral` runs on PHerc. Paris 4 (z 10600-10900, 120 windings,
+consumer GPU, identical settings), differing only in inputs, both scored
+against the same 94 sealed patches (49,458 points):
+
+- *Dense run* (fit-side patches): the two instruments agree. Satisfaction
+  5/389 patches (1.3%); fitbench median distance 3.83 vox, 72.9% within
+  tau = 6, mean single-winding consistency 0.43. A deliberately cheap fit
+  (1,500 steps, 8 GB VRAM), judged weak by both.
+- *Sparse run* (no patches at all, the minimal-input regime #1237 declares
+  a valid use-case): patch satisfaction is an **empty denominator (0/0)**,
+  and even the held-out median distance barely moves (3.94 vox, 74.1%
+  within tau), so a distance-only check would also pass it. What the
+  held-out suite exposes is that sheet identity halved (mean consistency
+  0.43 -> 0.20: the surface passes near the papyrus but on the wrong
+  windings), normal agreement degraded (p90 35.0 -> 48.8 deg) and extreme
+  outliers appeared (max 23.9 -> 129.0 vox).
+
+Same window, same sealed patches, one variable. Reports and the delta table
+(`fitbench compare`) in `examples/`.
 
 **Links**
 
