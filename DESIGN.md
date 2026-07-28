@@ -20,15 +20,16 @@ as an evaluation:
 3. **Not post-hoc.** It needs the fit checkpoint, torch, and the input bundle; it cannot score a
    run folder after the fact, nor surfaces produced by a different method (ScrollFiesta, lasagna).
 
-Adjacent tools do not fill the gap: `windcheck` audits *individual traced segments* for
-wrap-relapse from mesh geometry (no ground truth), and `get_ink_metrics.py` is a GPU proxy through
-an ink model trained on one scroll. Nothing scores a whole-scroll winding family against evidence
-withheld from the fit.
+Adjacent tools do not fill the gap: `windcheck` (as rebuilt in July 2026) is a deterministic
+self-intersection validator for *individual traced surfaces*, label-free and threshold-free, from
+mesh geometry alone; `get_ink_metrics.py` is a GPU proxy through an nnU-Net ink ensemble. Nothing
+scores a whole-scroll winding family against evidence withheld from the fit.
 
 ## Operating point
 
 - Input: a run's winding surfaces. Layouts supported:
-  - `out/<run>/meshes/mesh/wNNN/` and `wNNN_spliced/` directories (one `tifxyz` per winding);
+  - `out/<run>/meshes/fitted[_<tag>]/wNNN[_<tag>]/` and `wNNN_spliced[_<tag>]/` directories (one
+    `tifxyz` per winding, as `fit_spiral` writes them; the tag comes from `FIT_SPIRAL_RUN_TAG`);
   - a combined QuadSurface with `winding_column_ranges` + `component_winding_ids` in `meta.json`
     (see `save_combined_tifxyz`);
   - any directory of `tifxyz` surfaces with winding ids parseable from names (producer-agnostic).
@@ -46,13 +47,22 @@ Held-out, per patch (then aggregated):
   nearest winding surface (closest-point-on-triangle over the winding's valid quads, KD-tree
   accelerated). Report p50/p90/p99 and fraction within tau (tau default 6 vox, matching the
   satisfaction tolerance for comparability).
-- **single-winding consistency**: fraction of the patch's area assigned to its modal winding id.
-  A patch is one piece of papyrus; if its points split across windings, the fit switched sheets.
+- **sheet consistency** (seam-aware): a patch is one piece of papyrus, so its points must land on
+  one *continuous sheet*. Winding ids alone cannot express that at the theta seam, where a patch
+  legitimately spans windings w and w+1 (that is what winding indexing means on a spiral), so each
+  face carries a continuous winding coordinate `u = winding_id + column / columns` (grid columns
+  follow the spiral and are continuous across seams) and consistency is the largest fraction of
+  the patch's points that fit within one window of 0.9 turns. 1.0 for a seam-crossing patch on a
+  perfect fit; ~0.5 for a 50/50 sheet switch.
+- **single-winding consistency** (raw): fraction of the patch's area assigned to its modal
+  winding id. Kept alongside because it is the simplest possible definition, but it has a
+  structural floor at the seam; the seam-aware metric above is the headline.
 - **winding-number agreement**: when `winding.tif` is present, difference between relative winding
   deltas in the patch annotation and deltas of assigned winding ids.
 - **normal agreement**: angle between patch quad normals and the matched surface normals
   (p50/p90), sign-agnostic.
-- **coverage**: fraction of patch area with any winding surface within tau.
+- **fraction within tau** doubles as coverage: the share of patch area with a winding surface
+  within tolerance.
 
 Intrinsic, no ground truth:
 
@@ -69,10 +79,22 @@ Run comparison: same report for runs A and B, plus a delta table keyed by metric
 ## Held-out protocol
 
 `fitbench split`: deterministic, seeded split of a verified-patch directory into `fit/` and
-`heldout/` (default 80/20 by patch, stratified by z extent). Writes `split_manifest.json` with
-seed, per-patch assignment, and content hashes, so a reported number is reproducible and it is
-checkable that the fit's input dir matches the manifest's `fit/` side. Scoring refuses to run if a
-held-out patch uuid appears in the run's recorded inputs (when the run folder carries that info).
+`heldout/` (default 80/20, stratified by z). Patches are grouped into *families* before splitting
+(villa's `*_sel_*` exports, `_region_NNN` crops, `_flatboi` variants and `same_wrapNNNNNN_*`
+producers are near-duplicate geometry of one parent), and a whole family goes to one side.
+`split_manifest.json` records the seed, every assignment, the grouping, and two hashes per patch:
+`content_sha256` (all files) and `geometry_sha256` (geometry files only, immune to metadata
+rewrites). `fitbench score --manifest --fit-inputs` refuses to score (exit 3) when a held-out
+patch is found among the fit inputs, matching by geometry hash, recursively; it also refuses
+(exit 4) when the *scored* patches are not the manifest's held-out side.
+
+Honest limits of hash auditing: an exact-copy check cannot see a copy whose bytes were changed, or
+geometric overlap between *different* patches. That channel is real on PHerc. Paris 4, where
+verified patches overlap heavily, and it is why scoring with `--fit-inputs` also measures
+**evidence leakage** geometrically: the distance of every scored point to the union of the fit's
+actual input surfaces, reported as a profile, plus an **unseen** aggregate over the points farther
+than `--unseen-min-dist` (default 2 vox) from every input. That measurement holds whatever the
+split did, and it is the number to quote when claiming evidence was withheld.
 
 ## Validation plan (before any claim)
 
@@ -92,29 +114,42 @@ The windcheck standard, adopted:
 - PHerc. Paris 4 spiral-input dataset (~50 GB, HF `scrollprize/datasets` bucket, syncing).
 - Candidate second scroll: PHerc1218 public input pack (vesuvius-sheet-tools thread).
 
-## Mutation audit (2026-07-27)
+## Mutation audit (2026-07-27, extended 2026-07-28)
 
 The tests themselves are audited by mutation: `scripts/mutation_check.py`
-injects eight deliberate bugs one at a time (flipped geometry sign, broken
-KD-bound exactness, invalid quads treated as valid, scrambled z/y/x axes,
-inverted tolerance comparison, disabled crossing alarm, swapped angle
-convention, split that never holds out) and requires the suite to fail on
-every one, then pass again unmutated. First run: 7/8 detected; the survivor
+injects deliberate bugs one at a time and requires the suite to fail on every
+one, then pass again unmutated. First round (eight mutations: flipped geometry
+sign, broken KD-bound exactness, invalid quads treated as valid, scrambled
+z/y/x axes, inverted tolerance comparison, disabled crossing alarm, swapped
+angle convention, split that never holds out): 7/8 detected; the survivor
 (KD-bound break) exposed a fixture too benign to need the bound, so an
 adversarial mesh test (far-centroid nearest surface behind a decoy cluster)
-was added; now 8/8 detected. Integration fix found by the same audit pass:
-villa's real `umbilicus.json` is a dict with `control_points`, now parsed and
+was added; then 8/8. Integration fix found by the same audit pass: villa's
+real `umbilicus.json` is a dict with `control_points`, now parsed and
 unit-tested.
+
+On 2026-07-28 an independent test-quality review ran its own counter-mutations
+and eight of eight survived the suite (dead normal metric, constant published
+aggregates, inverted CLI z-range, widened epsilon guard, dead inflated-gap
+indicator, ignored umbilicus, and more). Every one of those now has a
+dedicated test and lives in the mutation list, which also covers the v0.2
+leakage/split/seam code; the audit currently stands at 23/23 detected. One of
+the new tests was itself first written too symmetrically to discriminate (two
+equal-sized patches) and was caught by the audit: the audit polices the tests,
+including the new ones.
 
 ## Real-data notes (night of 2026-07-26/27, PHerc. Paris 4 verified patches)
 
-- Real patch TIFFs are LZW-compressed: `imagecodecs` is a hard dependency.
-- Loader validated on 500/500 randomly sampled complete patch dirs (of 3,272
-  synced at the time; 4,923 listed). Grids range 4x4 to 1056x460 (median
-  ~35x44); valid-vertex fraction median 1.00, p10 0.87; z spans 416..18,255;
-  ~6% carry `mask.tif`; **none carry `winding.tif`**, so the winding-agreement
-  metric is optional in practice and the consistency metric does the heavy
-  lifting on real data.
+- Some real patch files are LZW-compressed (mask.tif mostly; most coordinate
+  grids are uncompressed): `imagecodecs` is a hard dependency to read them all.
+- Loader validated on 500/500 randomly sampled complete patch dirs. The shape
+  statistics below were measured on the partial sync of 2026-07-26 (3,272 of
+  4,923 listed dirs) and are kept as a dated snapshot, not a reproducible
+  claim: grids 4x4 to 1056x460 (median ~35x44), valid-vertex fraction median
+  1.00, z spans 416..18,255, ~6% with `mask.tif`. On the complete set,
+  **0/4,922 patches carry `winding.tif`**, so the winding-agreement metric is
+  optional in practice and the consistency metric does the heavy lifting on
+  real data.
 - Overlap null-control (150 pairs from `overlapping.json`), with the overlap
   zone defined geometrically (points whose closest partner face is interior,
   not rim): the typical pair agrees to sub-voxel across its zone (per-pair p95

@@ -13,7 +13,9 @@ directory holds:
 - ``winding.tif`` (optional): per-vertex relative winding values (float32);
   all-zero/NaN means "single winding"
 
-Invalid vertices are the sentinel -1 on all three coordinate grids.
+Invalid vertices are the sentinel -1 on all three coordinate grids. Non-finite
+coordinates (NaN/inf) are treated as invalid on load as well: they carry no
+usable geometry and must not reach the distance engine.
 """
 
 from __future__ import annotations
@@ -103,6 +105,11 @@ def load_tifxyz(path: str | Path) -> QuadSurface:
 
     grids = [tifffile.imread(path / f"{coord}.tif") for coord in "zyx"]
     zyxs = np.stack(grids, axis=-1).astype(np.float32, copy=False)
+
+    nonfinite = ~np.isfinite(zyxs).all(axis=-1)
+    if nonfinite.any():
+        zyxs = zyxs.copy()
+        zyxs[nonfinite] = INVALID
 
     mask_path = path / "mask.tif"
     if mask_path.exists():
@@ -194,10 +201,15 @@ def split_combined(surface: QuadSurface) -> dict[int, QuadSurface]:
     if len(surface.winding_column_ranges) != len(surface.component_winding_ids):
         raise ValueError("winding_column_ranges and component_winding_ids length mismatch")
     out: dict[int, QuadSurface] = {}
+    width = surface.zyxs.shape[1]
     for winding_id, (j0, j1) in zip(
         surface.component_winding_ids, surface.winding_column_ranges, strict=True
     ):
-        block = surface.zyxs[:, j0:j1]
+        # villa: "adjacent windings remain joined by quads across their shared
+        # seam". A half-open slice would drop that bridging quad and open a
+        # one-quad crack at every seam, so keep the first column of the next
+        # block (the bridge quad is attributed to the inner winding).
+        block = surface.zyxs[:, j0 : min(j1 + 1, width)]
         out[int(winding_id)] = QuadSurface(zyxs=block, scale=surface.scale, path=surface.path)
     return out
 
@@ -205,7 +217,8 @@ def split_combined(surface: QuadSurface) -> dict[int, QuadSurface]:
 def load_run_windings(
     meshes_dir: str | Path, variant: str = "spliced"
 ) -> dict[int, QuadSurface]:
-    """Load a fit run's winding surfaces from a ``meshes/mesh``-style directory.
+    """Load a fit run's winding surfaces from a ``meshes/fitted``-style directory
+    (villa writes ``out/<run>/meshes/fitted[_<tag>]/``).
 
     ``variant`` is ``"spliced"`` (prefer ``wNNN_spliced``), ``"plain"`` (only
     ``wNNN``), or ``"any"``. Also accepts a directory containing one combined
@@ -225,7 +238,15 @@ def load_run_windings(
         m = _WINDING_DIR_RE.match(child.name)
         if m:
             wid = int(m.group(1))
-            candidates.setdefault(wid, {})[bool(m.group(2))] = child
+            slot = candidates.setdefault(wid, {})
+            key = bool(m.group(2))
+            if key in slot:
+                raise ValueError(
+                    f"ambiguous winding directories in {meshes_dir}: "
+                    f"{slot[key].name} and {child.name} both map to winding "
+                    f"{wid} (two run tags in one directory?)"
+                )
+            slot[key] = child
         else:
             meta = json.loads((child / "meta.json").read_text(encoding="utf-8"))
             if meta.get("winding_column_ranges"):

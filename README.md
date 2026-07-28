@@ -2,8 +2,8 @@
 
 **Held-out geometric evaluation for whole-scroll surface fits.**
 
-Work in progress, targeting the "devise better evaluation suites" item of the Vesuvius Challenge
-[2026 open problems](https://scrollprize.org/2026_open_problems).
+Built for the "devise better evaluation suites" item of the Vesuvius Challenge
+[2026 open problems](https://scrollprize.org/2026_open_problems). MIT license.
 
 ## Why
 
@@ -19,14 +19,18 @@ that the fit never saw, plus intrinsic topology checks that need no ground truth
 producer-agnostic: anything that emits `tifxyz` winding surfaces can be scored, and two runs can
 be compared metric by metric.
 
-## What it does (v0 scope)
+## What it does
 
-- **Held-out accuracy**: surface-distance percentiles, single-winding consistency, winding-number
-  agreement, normal agreement, and coverage of each held-out patch.
+- **Held-out accuracy**: surface-distance percentiles and fraction within tau, sheet consistency
+  (seam-aware, via a continuous winding coordinate) plus the raw single-winding fraction,
+  winding-number agreement, and normal agreement, per held-out patch and aggregated.
+- **Evidence-leakage audit**: given the fit's actual input patches, fitbench measures how much of
+  the "held-out" evidence lies within touching distance of an input surface (overlapping patch
+  selections make name-level splits leaky) and re-scores the genuinely unseen evidence separately.
 - **Intrinsic checks**: radial monotonicity of the winding family around the umbilicus,
-  inter-winding spacing distribution, self-intersection indicators, validity stats.
+  inter-winding spacing distribution (collapsed and inflated gaps), validity stats.
 - **Run comparison**: the same report for two run folders, with deltas.
-- Reports as JSON plus PNG overlays. CPU-only, no torch, no GPU, no checkpoint needed.
+- Reports as JSON + Markdown plus PNG overlays. CPU-only, no torch, no GPU, no checkpoint needed.
 
 See [DESIGN.md](DESIGN.md) for the metric definitions, the held-out split protocol, and the
 planted-defect validation plan, and [VALIDATION.md](VALIDATION.md) for what was tested and the
@@ -34,12 +38,17 @@ resulting numbers (planted-defect matrix, mutation audit, real-data controls).
 
 ## Status
 
-v0 engine working (July 2026): exact point-to-mesh distance (brute-force
-verified), held-out metrics and intrinsic checks validated against planted
-defects on a synthetic scroll (null controls silent, every defect class
-detected by the intended metric), split/score/intrinsic/compare CLI covered by
-end-to-end tests, loader validated on 500/500 real PHerc. Paris 4 verified
-patches. Pending before first release: a demonstration on a real fit run.
+v0.2 (July 2026): exact point-to-mesh distance (verified against brute force
+over every triangle and against an independent dense-sampling reference),
+held-out metrics and intrinsic checks validated against planted defects on a
+synthetic scroll (null controls silent, every defect class detected by the
+intended metric), split/score/intrinsic/compare CLI covered by end-to-end
+tests, loader validated on 500/500 real PHerc. Paris 4 verified patches, and a
+demonstration on two real `fit_spiral` runs (see VALIDATION.md, section 6).
+The 2026-07-28 external-style review round (adversarial code review, claims
+audit, upstream check, test-quality audit) led to v0.2: the evidence-leakage
+audit, the seam-aware sheet consistency, the family-grouped split, and a test
+suite hardened until 22/22 injected bugs are detected.
 
 ## Authorship
 

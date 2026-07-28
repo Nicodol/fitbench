@@ -95,6 +95,8 @@ def write_report(
                     ["dist p50 / p90 / p99 (vox)",
                      f"{aggregate['dist_p50']:.3f} / {aggregate['dist_p90']:.3f} / {aggregate['dist_p99']:.3f}"],
                     [f"within tau = {aggregate['tau']}", f"{aggregate['frac_within_tau'] * 100:.1f}%"],
+                    ["sheet consistency (mean / min)",
+                     f"{aggregate['mean_sheet_consistency']:.3f} / {aggregate['min_sheet_consistency']:.3f}"],
                     ["single-winding consistency (mean / min)",
                      f"{aggregate['mean_single_winding_consistency']:.3f} / {aggregate['min_single_winding_consistency']:.3f}"],
                     ["winding agreement", str(aggregate["mean_winding_agreement"])],
@@ -103,14 +105,49 @@ def write_report(
             ),
             "",
         ]
+        leakage = aggregate.get("evidence_leakage")
+        unseen = aggregate.get("unseen")
+        if leakage is not None:
+            lines += ["## Evidence leakage vs fit inputs", ""]
+            lines += [
+                _md_table(
+                    [[k.replace("_", " "), f"{v * 100:.1f}%" if k.startswith("frac") else str(v)]
+                     for k, v in leakage.items()],
+                    ["measure", "value"],
+                ),
+                "",
+            ]
+        if unseen is not None and unseen.get("n_points", 0) > 0:
+            heading = (
+                f"## Unseen evidence only (points > {unseen['unseen_min_dist']:g} "
+                "vox from every fit input)"
+            )
+            lines += [
+                heading, "",
+                _md_table(
+                    [
+                        ["patches used / excluded (too few unseen points)",
+                         f"{unseen['n_patches']} / {unseen['n_patches_excluded']}"],
+                        ["points", str(unseen["n_points"])],
+                        ["dist p50 / p90 / p99 (vox)",
+                         f"{unseen['dist_p50']:.3f} / {unseen['dist_p90']:.3f} / {unseen['dist_p99']:.3f}"],
+                        ["within tau", f"{unseen['frac_within_tau'] * 100:.1f}%"],
+                        ["sheet consistency (mean / min)",
+                         f"{unseen['mean_sheet_consistency']:.3f} / {unseen['min_sheet_consistency']:.3f}"],
+                        ["normal angle p90 (deg)", f"{unseen['normal_angle_p90_deg']:.1f}"],
+                    ],
+                    ["metric", "value"],
+                ),
+                "",
+            ]
         rows = [
             [s.patch_id, str(s.n_points), f"{s.dist_p50:.2f}", f"{s.dist_p99:.2f}",
              f"{s.frac_within_tau * 100:.0f}%", str(s.modal_winding),
-             f"{s.single_winding_consistency:.2f}"]
+             f"{s.sheet_consistency:.2f}"]
             for s in sorted(scores or [], key=lambda s: -s.dist_p99)
         ]
         lines += ["## Per patch (worst first)", "",
-                  _md_table(rows, ["patch", "pts", "p50", "p99", "<tau", "winding", "consistency"]), ""]
+                  _md_table(rows, ["patch", "pts", "p50", "p99", "<tau", "winding", "sheet cons."]), ""]
     if intrinsic is not None:
         lines += ["## Intrinsic checks", ""]
         lines += [
@@ -139,6 +176,10 @@ def write_report(
                       _md_table(rows, ["kind", "gap", "inner wind", "z", "theta"]), ""]
     (out_dir / "report.md").write_text("\n".join(lines), encoding="utf-8")
 
+    # Remove overlays from a previous run of a different z span, so a reused
+    # --out directory never mixes overlays of two runs.
+    for stale in out_dir.glob("overlay_z*.png"):
+        stale.unlink()
     if family and scores and overlay_slices > 0:
         all_z = np.concatenate([s.point_zyx[:, 0] for s in scores])
         z_lo, z_hi = float(all_z.min()), float(all_z.max())
@@ -161,7 +202,15 @@ def compare_reports(report_a: str | Path, report_b: str | Path, out_path: str | 
         sa, sb = a.get(section, {}), b.get(section, {})
         for key in sorted(set(sa) & set(sb)):
             va, vb = sa[key], sb[key]
-            if isinstance(va, (int, float)) and isinstance(vb, (int, float)):
+            if isinstance(va, dict) and isinstance(vb, dict):
+                for sub in sorted(set(va) & set(vb)):
+                    sva, svb = va[sub], vb[sub]
+                    if isinstance(sva, (int, float)) and isinstance(svb, (int, float)):
+                        rows.append(
+                            [f"{section}.{key}.{sub}", f"{sva:.4g}", f"{svb:.4g}",
+                             f"{svb - sva:+.4g}"]
+                        )
+            elif isinstance(va, (int, float)) and isinstance(vb, (int, float)):
                 rows.append([f"{section}.{key}", f"{va:.4g}", f"{vb:.4g}", f"{vb - va:+.4g}"])
     text = "# fitbench compare\n\n" + _md_table(rows, ["metric", "A", "B", "B - A"]) + "\n"
     out_path = Path(out_path)

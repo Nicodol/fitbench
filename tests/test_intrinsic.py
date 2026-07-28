@@ -77,6 +77,45 @@ def test_holes_reduce_validity_without_false_alarms():
     assert rep.validity_per_winding[12] < 1.0
 
 
+def test_off_center_family_with_umbilicus_matches_centered():
+    """The umbilicus must actually be subtracted before radii are computed: a
+    family whose axis sits far from the origin, checked with its true axis,
+    must report exactly what the centered family reports."""
+    centered = intrinsic_report(family())
+    off = make_family(
+        num_windings=6, first_winding=10, pitch=PITCH, z_count=16,
+        center_yx=(3000.0, 4000.0),
+    )
+    shifted = intrinsic_report(off, umbilicus=(3000.0, 4000.0))
+    assert shifted.n_violations == 0
+    assert shifted.n_collapsed == 0
+    assert abs(shifted.median_pitch - centered.median_pitch) < 0.05
+    # Sanity: with the wrong axis the same family looks broken, which is why
+    # the CLI warns when no umbilicus is given.
+    wrong = intrinsic_report(off, umbilicus=None)
+    assert abs(wrong.median_pitch - PITCH) > 1.0 or wrong.n_violations > 0
+
+
+def test_inflated_gap_fires():
+    """A hole in the wrap (every winding from w outward pushed one extra pitch
+    in a theta band) must be reported as inflated gaps, not violations."""
+    fam = family()
+    w0 = 13
+    theta = np.linspace(0.0, 2 * np.pi, fam[w0].zyxs.shape[1], endpoint=False)
+    cols = np.nonzero((theta >= 3.0) & (theta < 4.0))[0]
+    for wid in fam:
+        if wid < w0:
+            continue
+        zyxs = fam[wid].zyxs.copy().astype(np.float64)
+        yx = zyxs[:, cols, 1:]
+        r = np.linalg.norm(yx, axis=-1, keepdims=True)
+        zyxs[:, cols, 1:] = yx / np.maximum(r, 1e-9) * (r + 2.0 * PITCH)
+        fam[wid] = type(fam[wid])(zyxs.astype(np.float32), fam[wid].scale)
+    rep = intrinsic_report(fam)
+    assert rep.n_inflated > 0
+    assert rep.n_violations == 0
+
+
 def test_resolve_umbilicus_forms():
     z = np.array([0.0, 10.0, 20.0])
     np.testing.assert_allclose(resolve_umbilicus(None, z), 0.0)

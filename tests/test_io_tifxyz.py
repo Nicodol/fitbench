@@ -94,8 +94,17 @@ def test_split_combined(tmp_path):
     )
     parts = split_combined(load_tifxyz(tmp_path / "combined"))
     assert sorted(parts) == [10, 11, 12]
-    for wid, block in blocks.items():
-        np.testing.assert_allclose(parts[wid].zyxs, block)
+    # Each part keeps the first column of the next block: villa's combined
+    # format joins adjacent windings with quads across the shared seam, and a
+    # half-open slice would drop that bridging quad (a one-quad crack that
+    # inflates distances at every seam).
+    width = combined.shape[1]
+    for wid, (j0, j1) in zip(blocks, ranges):
+        expected = combined[:, j0 : min(j1 + 1, width)]
+        np.testing.assert_allclose(parts[wid].zyxs, expected)
+    total_quads = sum(2 * p.valid_quad_mask.sum() for p in parts.values())
+    full = load_tifxyz(tmp_path / "combined")
+    assert total_quads == 2 * full.valid_quad_mask.sum()  # no quad lost at seams
 
 
 def test_load_run_windings_prefers_spliced(tmp_path):
@@ -132,3 +141,27 @@ def test_load_run_windings_with_run_tag(tmp_path):
     plain = load_run_windings(meshes, variant="plain")
     assert plain[10].zyxs[0, 0, 0] == 1.0
     assert plain[11].zyxs[0, 0, 0] == 3.0
+
+
+def test_nonfinite_coordinates_become_invalid(tmp_path):
+    zyxs = grid()
+    zyxs[0, 0, 0] = np.nan
+    zyxs[1, 1, 2] = np.inf
+    write_tifxyz(tmp_path / "nan_patch", zyxs)
+    surf = load_tifxyz(tmp_path / "nan_patch")
+    assert not surf.valid_vertex_mask[0, 0]
+    assert not surf.valid_vertex_mask[1, 1]
+    assert np.isfinite(surf.valid_zyxs).all()
+
+    all_nan = np.full_like(grid(), np.nan)
+    write_tifxyz(tmp_path / "all_nan", all_nan)
+    with pytest.raises(ValueError, match="no valid quad"):
+        load_tifxyz(tmp_path / "all_nan")
+
+
+def test_two_run_tags_in_one_meshes_dir_is_an_error(tmp_path):
+    meshes = tmp_path / "meshes"
+    write_tifxyz(meshes / "w010_runA", grid(z0=1.0))
+    write_tifxyz(meshes / "w010_runB", grid(z0=2.0))
+    with pytest.raises(ValueError, match="ambiguous winding"):
+        load_run_windings(meshes, variant="any")

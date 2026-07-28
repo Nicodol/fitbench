@@ -159,3 +159,132 @@ def test_winding_agreement_null_and_broken(clean_family):
     broken = swap_band(clean_family, 11, 12, theta_band=(0.0, 2 * np.pi))
     bad = score_patch(patch, WindingFamilySoup.from_family(broken), patch_id="two-wind")
     assert bad.winding_agreement is not None and bad.winding_agreement < 0.7
+
+    # The published aggregate must reflect it too (an aggregate replaced by a
+    # constant would pass any per-patch test).
+    _, agg_ok = score_patches({"tw": patch}, clean_family)
+    _, agg_bad = score_patches({"tw": patch}, broken)
+    assert agg_ok["mean_winding_agreement"] == 1.0
+    assert agg_bad["mean_winding_agreement"] < 0.7
+
+
+def test_normal_agreement_fires_on_tilted_patch(clean_family):
+    """A patch whose rows are alternately pushed in/out radially stays close to
+    the surface but its quads tilt hard: the normal metric must fire (its null
+    control alone cannot prove the metric is alive)."""
+    patch = sample_patch(12, PITCH, (0.5, 1.5), (8.0, 52.0), rows=8, cols=12)
+    zyxs = patch.zyxs.astype(np.float64)
+    radial = zyxs[..., 1:] / np.linalg.norm(zyxs[..., 1:], axis=-1, keepdims=True)
+    amp = 2.0 * (-1.0) ** np.arange(zyxs.shape[0])
+    zyxs[..., 1:] = zyxs[..., 1:] + radial * amp[:, None, None]
+    tilted = QuadSurface(zyxs.astype(np.float32), patch.scale)
+
+    soup = WindingFamilySoup.from_family(clean_family)
+    flat = score_patch(patch, soup, patch_id="flat")
+    score = score_patch(tilted, soup, patch_id="tilted")
+    # rows are ~6.3 vox apart, alternating +/-2 vox radially: tilt ~32 deg
+    assert score.dist_max < 2.5  # still on the sheet...
+    assert score.normal_angle_p50_deg > 15.0  # ...but the orientation is wrong
+    assert flat.normal_angle_p50_deg < 8.0
+
+    # And the point-weighted aggregate must move with it.
+    _, agg_flat = score_patches({"p": patch}, clean_family)
+    _, agg_tilt = score_patches({"p": tilted}, clean_family)
+    assert agg_tilt["normal_angle_p90_deg"] > agg_flat["normal_angle_p90_deg"] + 10.0
+
+
+def test_aggregates_match_per_point_data(clean_family, heldout_patches):
+    """The published aggregates must be recomputable from the per-point payload:
+    an aggregate short-circuited to a constant fails here."""
+    scores, agg = score_patches(heldout_patches, clean_family, tau=6.0)
+    all_dist = np.sort(np.concatenate([s.point_dist for s in scores]))
+    for name, q in [("dist_p50", 50), ("dist_p90", 90), ("dist_p99", 99)]:
+        assert agg[name] == float(np.percentile(all_dist, q))
+    assert agg["dist_max"] == float(all_dist.max())
+    assert agg["frac_within_tau"] == float((all_dist <= 6.0).mean())
+    assert agg["mean_single_winding_consistency"] == 1.0
+    assert agg["mean_sheet_consistency"] == 1.0
+    assert agg["min_sheet_consistency"] == 1.0
+    assert agg["n_points"] == sum(s.n_points for s in scores)
+
+
+def test_seam_crossing_patch_is_one_sheet(clean_family):
+    """A perfect patch crossing the theta seam legitimately spans windings w
+    and w+1 (that is what winding indexing means on a spiral), so the raw
+    modal-winding fraction drops by construction; the sheet consistency built
+    on the continuous winding coordinate must stay exactly 1."""
+    soup = WindingFamilySoup.from_family(clean_family)
+    seam = sample_patch(13, PITCH, (-0.5, 0.5), (8.0, 52.0), rows=10, cols=20)
+    s = score_patch(seam, soup, patch_id="seam")
+    # p50, not max: the synthetic family itself has no bridging quad at the
+    # seam (its windings are open grids over [0, 2pi)), so a few edge points
+    # see a chordal gap. The patch is on the ideal spiral everywhere.
+    assert s.dist_p50 < 0.5
+    assert s.single_winding_consistency < 1.0  # structural split across 12/13
+    assert sorted(np.unique(s.point_winding)) == [12, 13]
+    assert s.sheet_consistency == 1.0  # but it is one continuous sheet
+
+    # A true sheet switch away from the seam must still fire on both.
+    swapped = swap_band(clean_family, 11, 12, theta_band=(1.0, 2.0))
+    straddle = sample_patch(11, PITCH, (0.5, 2.5), (8.0, 52.0), cols=20)
+    bad = score_patch(straddle, WindingFamilySoup.from_family(swapped), patch_id="switch")
+    assert bad.sheet_consistency < 0.85
+    assert bad.single_winding_consistency < 0.85
+
+
+def test_evidence_leakage_and_unseen_aggregate(clean_family):
+    """A near-duplicate of a held-out patch among the fit inputs (jittered, so
+    no hash can catch it) must show up in the leakage profile, and the unseen
+    aggregate must keep only the genuinely far evidence."""
+    # Different sizes on purpose: with equal point counts, inverting the
+    # unseen selection or the leakage fractions would produce the same numbers
+    # and this test could not tell (found by the mutation audit).
+    held_a = sample_patch(11, PITCH, (0.4, 1.6), (8.0, 52.0), rows=8, cols=12)
+    held_b = sample_patch(13, PITCH, (2.0, 3.4), (8.0, 52.0), rows=8, cols=16)
+    leak = sample_patch(11, PITCH, (0.4, 1.6), (8.0, 52.0), normal_jitter=0.1)
+
+    scores, agg = score_patches(
+        {"a": held_a, "b": held_b}, clean_family,
+        input_family={"leak": leak}, unseen_min_dist=2.0,
+    )
+    by_id = {s.patch_id: s for s in scores}
+    n_a, n_b = by_id["a"].n_points, by_id["b"].n_points
+
+    leakage = agg["evidence_leakage"]
+    assert leakage["n_input_patches"] == 1
+    # patch a sits within jitter distance of the leaked input; patch b is on
+    # another winding two turns away.
+    assert abs(leakage["frac_within_2_vox"] - n_a / (n_a + n_b)) < 0.02
+    assert by_id["a"].n_points_unseen < 0.02 * n_a
+    assert by_id["b"].n_points_unseen == n_b
+
+    unseen = agg["unseen"]
+    assert unseen["n_patches"] == 1  # a has too few unseen points and is excluded
+    assert unseen["n_patches_excluded"] == 1
+    assert unseen["n_points"] == n_b
+    assert unseen["dist_p50"] < 1.0
+    assert unseen["mean_sheet_consistency"] == 1.0
+
+    # Without fit inputs there must be no leakage/unseen section at all.
+    _, agg_plain = score_patches({"a": held_a, "b": held_b}, clean_family)
+    assert "evidence_leakage" not in agg_plain and "unseen" not in agg_plain
+
+
+def test_nan_vertices_are_invalid_not_fatal(clean_family):
+    """Non-finite coordinates are invalid data, not crashes and not silent
+    skips: the rest of the patch must still be scored."""
+    patch = sample_patch(11, PITCH, (0.4, 1.6), (8.0, 52.0))
+    zyxs = patch.zyxs.copy()
+    zyxs[:2, :3] = np.nan
+    from fitbench.io_tifxyz import QuadSurface as QS
+
+    with_nan = QS(zyxs=zyxs, scale=patch.scale)
+    # Simulate the loader's normalization (load_tifxyz maps non-finite to the
+    # sentinel); scoring the normalized surface must succeed.
+    norm = zyxs.copy()
+    norm[~np.isfinite(norm).all(axis=-1)] = INVALID
+    normalized = QS(zyxs=norm, scale=patch.scale)
+    s = score_patch(normalized, WindingFamilySoup.from_family(clean_family), patch_id="nan")
+    assert s.n_points < patch.quad_centers()[0].shape[0]
+    assert np.isfinite(s.point_dist).all()
+    del with_nan

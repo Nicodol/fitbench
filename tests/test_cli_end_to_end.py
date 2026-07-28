@@ -104,6 +104,78 @@ def test_compare_discriminates(tmp_path):
     assert agg_b["dist_p99"] > agg_a["dist_p99"] + 1.0
 
 
+def test_score_flags_z_range_tau_umbilicus(tmp_path):
+    """The CLI glue for --z-range/--tau/--umbilicus is the path every real
+    report went through: exercise it end to end, not only the library."""
+    family = make_family(num_windings=6, first_winding=10, pitch=PITCH, z_count=16)
+    run = save_run(family, tmp_path / "run")
+    patches = {
+        "inside": sample_patch(11, PITCH, (0.4, 1.6), (8.0, 52.0)),
+        "outside": sample_patch(12, PITCH, (2.0, 3.0), (400.0, 460.0)),
+    }
+    src = save_patches(patches, tmp_path / "patches")
+    out = tmp_path / "rep"
+    rc = main([
+        "score", "--meshes", str(run), "--patches", str(src), "--out", str(out),
+        "--variant", "plain", "--overlays", "0",
+        "--z-range", "8,52", "--tau", "2.0", "--umbilicus", "0,0",
+    ])
+    assert rc == 0
+    report = json.loads((out / "report.json").read_text())
+    agg = report["heldout_aggregate"]
+    assert agg["z_range"] == [8.0, 52.0]
+    assert agg["tau"] == 2.0
+    assert agg["n_patches"] == 1 and agg["n_patches_skipped"] == 1
+    assert report["meta"]["umbilicus"] == "0,0"
+    assert report["meta"]["tau"] == 2.0
+
+
+def test_score_refuses_non_heldout_patches(tmp_path):
+    """Scoring the fit's own inputs under a --manifest is the classic mistake;
+    the CLI must refuse (exit 4) unless explicitly overridden."""
+    family = make_family(num_windings=6, first_winding=10, pitch=PITCH, z_count=16)
+    run, src, _ = make_all(tmp_path, family)
+    rc = main(["split", "--src", str(src), "--out", str(tmp_path / "split"), "--frac", "0.34"])
+    assert rc == 0
+    manifest = str(tmp_path / "split" / "split_manifest.json")
+
+    rc = main([
+        "score", "--meshes", str(run), "--patches", str(tmp_path / "split" / "fit"),
+        "--out", str(tmp_path / "rep_bad"), "--variant", "plain", "--overlays", "0",
+        "--manifest", manifest,
+    ])
+    assert rc == 4
+    rc = main([
+        "score", "--meshes", str(run), "--patches", str(tmp_path / "split" / "fit"),
+        "--out", str(tmp_path / "rep_forced"), "--variant", "plain", "--overlays", "0",
+        "--manifest", manifest, "--allow-unlisted-patches",
+    ])
+    assert rc == 0
+
+
+def test_score_with_fit_inputs_reports_leakage(tmp_path):
+    """--fit-inputs drives both the hash audit and the geometric leakage
+    measurement; the report must carry the leakage profile and the unseen
+    aggregate."""
+    family = make_family(num_windings=6, first_winding=10, pitch=PITCH, z_count=16)
+    run, src, _ = make_all(tmp_path, family)
+    rc = main(["split", "--src", str(src), "--out", str(tmp_path / "split"), "--frac", "0.34"])
+    assert rc == 0
+    out = tmp_path / "rep_leak"
+    rc = main([
+        "score", "--meshes", str(run), "--patches", str(tmp_path / "split" / "heldout"),
+        "--out", str(out), "--variant", "plain", "--overlays", "0",
+        "--manifest", str(tmp_path / "split" / "split_manifest.json"),
+        "--fit-inputs", str(tmp_path / "split" / "fit"),
+    ])
+    assert rc == 0
+    report = json.loads((out / "report.json").read_text())
+    agg = report["heldout_aggregate"]
+    assert "evidence_leakage" in agg and "unseen" in agg
+    assert report["meta"]["fit_inputs_hash_audit"] == "clean"
+    assert "Evidence leakage" in (out / "report.md").read_text()
+
+
 def test_intrinsic_command(tmp_path):
     family = make_family(num_windings=5, first_winding=10, pitch=PITCH)
     run = save_run(family, tmp_path / "run")

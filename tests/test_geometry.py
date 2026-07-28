@@ -149,3 +149,92 @@ def test_face_normals_unit():
     soup = wavy_soup()
     n = soup.face_normals()
     np.testing.assert_allclose(np.linalg.norm(n, axis=-1), 1.0, atol=1e-9)
+
+
+def _sampled_reference(points, a, b, c, n=80):
+    """Independent reference: dense barycentric sampling of each triangle.
+
+    Never calls the production primitive. The sampled minimum overestimates the
+    true distance by at most the sampling resolution (cell diameter <=
+    max_edge / n), giving a two-sided bracket for the exact result.
+    """
+    s = np.linspace(0.0, 1.0, n)
+    u, v = np.meshgrid(s, s)
+    keep = (u + v) <= 1.0
+    u, v = u[keep], v[keep]
+    out = np.empty(len(points))
+    for i in range(len(points)):
+        samples = a[i] + u[:, None] * (b[i] - a[i]) + v[:, None] * (c[i] - a[i])
+        out[i] = np.linalg.norm(samples - points[i], axis=-1).min()
+    return out
+
+
+def test_primitive_against_independent_sampling():
+    """The Voronoi-region primitive vs a reference that shares no code with it:
+    exact <= sampled <= exact + resolution, on random triangles."""
+    rng = np.random.default_rng(7)
+    n = 40
+    a = rng.normal(0, 3, (n, 3))
+    b = a + rng.normal(0, 2, (n, 3))
+    c = a + rng.normal(0, 2, (n, 3))
+    p = rng.normal(0, 4, (n, 3))
+    closest = closest_point_on_triangles(p, a, b, c)
+    exact = np.linalg.norm(closest - p, axis=-1)
+    sampled = _sampled_reference(p, a, b, c, n=80)
+    max_edge = np.max(
+        [np.linalg.norm(b - a, axis=-1), np.linalg.norm(c - a, axis=-1),
+         np.linalg.norm(c - b, axis=-1)],
+        axis=0,
+    )
+    resolution = max_edge / 80 + 1e-9
+    assert (sampled >= exact - 1e-9).all()  # exact can never beat the true minimum
+    assert (sampled - exact <= resolution).all()  # and must be within sampling reach
+
+
+def test_degenerate_and_needle_triangles():
+    """Needle, collinear, and point-collapsed triangles must still give the
+    analytically correct distance (this is where oversized epsilon guards or
+    sloppy region logic break)."""
+    # Thin but valid right triangle with 0.01 edges; point above its interior.
+    a = np.array([[0.0, 0.0, 0.0]])
+    b = np.array([[0.01, 0.0, 0.0]])
+    c = np.array([[0.0, 0.01, 0.0]])
+    p = np.array([[0.002, 0.002, 1.0]])
+    closest = closest_point_on_triangles(p, a, b, c)
+    np.testing.assert_allclose(
+        np.linalg.norm(closest - p, axis=-1), [1.0], rtol=0, atol=1e-9
+    )
+
+    # Collinear needle: the triangle degenerates to the segment a-c.
+    a = np.array([[0.0, 0.0, 0.0]])
+    b = np.array([[1e-9, 0.0, 0.0]])
+    c = np.array([[2.0, 0.0, 0.0]])
+    p = np.array([[1.0, 1.0, 0.0]])
+    closest = closest_point_on_triangles(p, a, b, c)
+    np.testing.assert_allclose(
+        np.linalg.norm(closest - p, axis=-1), [1.0], rtol=0, atol=1e-9
+    )
+
+    # Fully collapsed to a point.
+    a = b = c = np.array([[1.0, 2.0, 3.0]])
+    p = np.array([[1.0, 2.0, 5.0]])
+    closest = closest_point_on_triangles(p, a, b, c)
+    np.testing.assert_allclose(
+        np.linalg.norm(closest - p, axis=-1), [2.0], rtol=0, atol=1e-9
+    )
+
+
+def test_chunked_query_matches_single_shot():
+    """The chunked path of surface_distance is the one large real runs take;
+    it must be bit-identical to the one-shot path."""
+    rng = np.random.default_rng(11)
+    verts = rng.normal(0, 5, (60, 3))
+    faces = rng.integers(0, 60, (40, 3))
+    ok = (faces[:, 0] != faces[:, 1]) & (faces[:, 1] != faces[:, 2]) & (faces[:, 0] != faces[:, 2])
+    soup = TriangleSoup(verts, faces[ok])
+    points = rng.normal(0, 6, (211, 3))
+    one = surface_distance(points, soup)
+    chunked = surface_distance(points, soup, chunk=17)
+    np.testing.assert_array_equal(one.dist, chunked.dist)
+    np.testing.assert_array_equal(one.face_idx, chunked.face_idx)
+    np.testing.assert_array_equal(one.closest, chunked.closest)
