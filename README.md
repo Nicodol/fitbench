@@ -50,10 +50,6 @@ audit, upstream check, test-quality audit) led to v0.2: the evidence-leakage
 audit, the seam-aware sheet consistency, the family-grouped split, and a test
 suite hardened until 22/22 injected bugs are detected.
 
-## Authorship
-
-Directed, reviewed and maintained by Nicodol; built with heavy AI assistance.
-
 ## Acknowledgments
 
 - The `tifxyz` conventions and the satisfaction metrics this tool complements live in
