@@ -2,11 +2,11 @@
 
 import json
 
-from fitbench.cli import main
-from fitbench.io_tifxyz import save_tifxyz
-from fitbench.metrics import score_patches
-from fitbench.split import audit_fit_inputs, split_patches
-from fitbench.synthetic import make_family, radial_drift, sample_patch
+from parrhesia.cli import main
+from parrhesia.io_tifxyz import save_tifxyz
+from parrhesia.metrics import score_patches
+from parrhesia.split import audit_fit_inputs, split_patches
+from parrhesia.synthetic import make_family, radial_drift, sample_patch
 
 PITCH = 10.0
 

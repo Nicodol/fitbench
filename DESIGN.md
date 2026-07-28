@@ -1,4 +1,4 @@
-# fitbench design notes
+# parrhesia design notes
 
 Working notes, kept in-repo so reviewers can check the reasoning. Dates are 2026.
 
@@ -78,13 +78,13 @@ Run comparison: same report for runs A and B, plus a delta table keyed by metric
 
 ## Held-out protocol
 
-`fitbench split`: deterministic, seeded split of a verified-patch directory into `fit/` and
+`parrhesia split`: deterministic, seeded split of a verified-patch directory into `fit/` and
 `heldout/` (default 80/20, stratified by z). Patches are grouped into *families* before splitting
 (villa's `*_sel_*` exports, `_region_NNN` crops, `_flatboi` variants and `same_wrapNNNNNN_*`
 producers are near-duplicate geometry of one parent), and a whole family goes to one side.
 `split_manifest.json` records the seed, every assignment, the grouping, and two hashes per patch:
 `content_sha256` (all files) and `geometry_sha256` (geometry files only, immune to metadata
-rewrites). `fitbench score --manifest --fit-inputs` refuses to score (exit 3) when a held-out
+rewrites). `parrhesia score --manifest --fit-inputs` refuses to score (exit 3) when a held-out
 patch is found among the fit inputs, matching by geometry hash, recursively; it also refuses
 (exit 4) when the *scored* patches are not the manifest's held-out side.
 

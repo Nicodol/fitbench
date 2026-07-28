@@ -15,7 +15,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from fitbench.io_tifxyz import load_tifxyz
+from parrhesia.io_tifxyz import load_tifxyz
 
 CORE = ("meta.json", "x.tif", "y.tif", "z.tif")
 

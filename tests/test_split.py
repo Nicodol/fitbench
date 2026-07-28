@@ -4,14 +4,14 @@ import json
 
 import pytest
 
-from fitbench.io_tifxyz import save_tifxyz
-from fitbench.split import (
+from parrhesia.io_tifxyz import save_tifxyz
+from parrhesia.split import (
     audit_fit_inputs,
     audit_scored_patches,
     family_key,
     split_patches,
 )
-from fitbench.synthetic import sample_patch
+from parrhesia.synthetic import sample_patch
 
 PITCH = 10.0
 

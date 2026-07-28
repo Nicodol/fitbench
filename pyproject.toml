@@ -1,5 +1,5 @@
 [project]
-name = "fitbench"
+name = "parrhesia"
 version = "0.1.0.dev0"
 description = "Held-out geometric evaluation for whole-scroll surface fits (Vesuvius Challenge)"
 readme = "README.md"
@@ -14,7 +14,7 @@ dependencies = [
 ]
 
 [project.scripts]
-fitbench = "fitbench.cli:main"
+parrhesia = "parrhesia.cli:main"
 
 [dependency-groups]
 dev = [
@@ -27,7 +27,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/fitbench"]
+packages = ["src/parrhesia"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

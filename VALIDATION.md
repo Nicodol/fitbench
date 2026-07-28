@@ -87,12 +87,12 @@ bridging quad per seam and inflated distances there).
 
 ## 5. Leakage control: hash audit plus geometric measurement
 
-`fitbench split` groups patches into families first (overlapping `*_sel_*`
+`parrhesia split` groups patches into families first (overlapping `*_sel_*`
 selections, `_region_`/`_flatboi` variants and `same_wrap` producers are
 near-duplicate geometry of one parent; a family never straddles the split) and
 writes `split_manifest.json` with the seed, every assignment, the grouping and
 two SHA-256 hashes per patch (full content, and geometry-only so a metadata
-rewrite cannot dodge the audit). `fitbench score --manifest --fit-inputs`
+rewrite cannot dodge the audit). `parrhesia score --manifest --fit-inputs`
 refuses to score (exit 3) when a held-out patch is found among the fit inputs
 (by geometry hash, recursively, renamed copies included) and refuses (exit 4)
 when the scored patches are not the manifest's held-out side. Covered end to
@@ -124,7 +124,7 @@ RTX 3060 Ti, identical settings and step budget), differing **in one input
 switch** (`use_verified_patches`), both scored against the same 94 sealed
 patches (49,458 quad centers, scoring restricted to the fitted window).
 
-For the dense run, fitbench's leakage audit measures that 54.8% of the sealed
+For the dense run, parrhesia's leakage audit measures that 54.8% of the sealed
 area lies within 0.5 vox of some fit-side input surface (overlapping patch
 selections; section 5), so the honest column for it is the **unseen** one:
 the 15,437 points farther than 2 vox from every input the fit consumed. The
@@ -135,9 +135,9 @@ construction.
 |---|---|---|
 | villa satisfaction, patches | 5/389 satisfied (1.3%) | **0/0 (empty denominator)** |
 | villa satisfaction, unattached pcl points | 54.8% | 49.9% |
-| fitbench surface distance p50 | 4.21 vox | 4.47 vox |
+| parrhesia surface distance p50 | 4.21 vox | 4.47 vox |
 | within tau = 6 vox | 67.6% | 67.4% |
-| fitbench surface distance p99 / max | 17.7 / 23.9 vox | **212.2 / 330.0 vox** |
+| parrhesia surface distance p99 / max | 17.7 / 23.9 vox | **212.2 / 330.0 vox** |
 | sheet consistency (mean, seam-aware) | 0.40 | **0.24** |
 | normal agreement p90 | 49.9 deg | 41.8 deg |
 

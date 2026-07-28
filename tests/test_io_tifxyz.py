@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 import tifffile
 
-from fitbench.io_tifxyz import INVALID, load_run_windings, load_tifxyz, split_combined
+from parrhesia.io_tifxyz import INVALID, load_run_windings, load_tifxyz, split_combined
 
 
 def write_tifxyz(path, zyxs, scale=(0.05, 0.05), extra_meta=None, mask=None, winding=None):

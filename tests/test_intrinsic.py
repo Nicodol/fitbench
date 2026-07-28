@@ -2,8 +2,8 @@
 
 import numpy as np
 
-from fitbench.intrinsic import intrinsic_report, resolve_umbilicus
-from fitbench.synthetic import collapse_gap, make_family, punch_holes, radial_drift, swap_band
+from parrhesia.intrinsic import intrinsic_report, resolve_umbilicus
+from parrhesia.synthetic import collapse_gap, make_family, punch_holes, radial_drift, swap_band
 
 PITCH = 10.0
 BAND = (1.0, 2.0)

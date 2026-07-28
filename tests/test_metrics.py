@@ -3,9 +3,9 @@
 import numpy as np
 import pytest
 
-from fitbench.io_tifxyz import INVALID, QuadSurface
-from fitbench.metrics import WindingFamilySoup, score_patch, score_patches
-from fitbench.synthetic import (
+from parrhesia.io_tifxyz import INVALID, QuadSurface
+from parrhesia.metrics import WindingFamilySoup, score_patch, score_patches
+from parrhesia.synthetic import (
     collapse_gap,
     make_family,
     radial_drift,
@@ -276,7 +276,7 @@ def test_nan_vertices_are_invalid_not_fatal(clean_family):
     patch = sample_patch(11, PITCH, (0.4, 1.6), (8.0, 52.0))
     zyxs = patch.zyxs.copy()
     zyxs[:2, :3] = np.nan
-    from fitbench.io_tifxyz import QuadSurface as QS
+    from parrhesia.io_tifxyz import QuadSurface as QS
 
     with_nan = QS(zyxs=zyxs, scale=patch.scale)
     # Simulate the loader's normalization (load_tifxyz maps non-finite to the

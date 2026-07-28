@@ -2,9 +2,9 @@
 
 import numpy as np
 
-from fitbench.geometry import TriangleSoup, surface_distance
-from fitbench.io_tifxyz import INVALID
-from fitbench.synthetic import (
+from parrhesia.geometry import TriangleSoup, surface_distance
+from parrhesia.io_tifxyz import INVALID
+from parrhesia.synthetic import (
     collapse_gap,
     make_family,
     punch_holes,

@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SRC = ROOT / "src" / "fitbench"
+SRC = ROOT / "src" / "parrhesia"
 
 MUTATIONS = [
     ("geometry.py", "    ab = b - a\n", "    ab = a - b\n",
@@ -44,18 +44,18 @@ MUTATIONS = [
      "cosine = np.ones(len(patch_normals))",
      "kill the normal-agreement metric (angle always zero)"),
     ("metrics.py",
-     '"mean_single_winding_consistency": float(\n'
-     "            np.average([s.single_winding_consistency for s in scores], weights=weights)\n"
-     "        ),",
+     ('"mean_single_winding_consistency": float(\n'
+      "            np.average([s.single_winding_consistency for s in scores], weights=weights)\n"
+      "        ),"),
      '"mean_single_winding_consistency": 0.0,',
      "replace the published consistency aggregate by a constant"),
     ("metrics.py",
-     '        "tau": tau,\n'
-     '        "dist_p50": float(np.percentile(all_dist, 50)),\n'
-     '        "dist_p90": float(np.percentile(all_dist, 90)),',
-     '        "tau": tau,\n'
-     '        "dist_p50": float(np.percentile(all_dist, 50)),\n'
-     '        "dist_p90": 0.0,',
+     ('        "tau": tau,\n'
+      '        "dist_p50": float(np.percentile(all_dist, 50)),\n'
+      '        "dist_p90": float(np.percentile(all_dist, 90)),'),
+     ('        "tau": tau,\n'
+      '        "dist_p50": float(np.percentile(all_dist, 50)),\n'
+      '        "dist_p90": 0.0,'),
      "replace the published dist_p90 aggregate by a constant"),
     ("metrics.py",
      "[s.winding_agreement for s in with_agreement],",
