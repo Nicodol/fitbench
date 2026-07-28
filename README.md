@@ -20,7 +20,9 @@ sheet: a surface placed one full winding out of place is still close to somethin
 real data, displacing the held-out evidence by two full pitches (41 voxels) moves the median
 distance by 0.23 vox, while the winding it is matched to moves by exactly two
 (`scripts/pitch_blindness.py`). Distance and winding identity are complementary by construction,
-not by preference.
+not by preference. (villa's satisfaction checks identity too, with a 0.45-pitch spiral-space
+tolerance; the difference is that it does so through the fit's own transform, and only on the
+fit's own inputs.)
 
 `parrhesia` evaluates a fit *from its output meshes alone*, against **held-out verified patches**
 that the fit never saw, plus intrinsic topology checks that need no ground truth at all. It is

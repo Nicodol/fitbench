@@ -89,9 +89,12 @@ that is one full winding out of place, which is the characteristic failure of
 scroll fitting. `scripts/pitch_blindness.py` shows it with a known answer on
 the real pipeline: displacing the held-out evidence by **two full winding
 pitches (41 voxels)** moves the median distance by 0.23 vox and within-tau by
-2.2 points, while the winding it is matched to moves by exactly two. That is
-why the suite reports winding identity next to distance, and computes it from
-the surfaces rather than through the fit's own transform.
+2.2 points, while the winding it is matched to moves by exactly two. This is
+why the suite carries winding identity next to distance, and it bounds what
+its own distance columns may claim. It is not a criticism of satisfaction,
+which checks a 0.45-pitch spiral-space tolerance and would catch the same
+error; the difference stays the one above, that satisfaction checks it
+through the fit's own transform and only on the fit's own inputs.
 
 **Demonstration on two real fits**
 

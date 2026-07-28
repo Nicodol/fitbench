@@ -152,11 +152,18 @@ random-direction probe confirms the mechanism directly: displacing points by
 nearest surface between 5.99 and 6.11 vox. The distance saturates at the
 geometry's own resolution.
 
-This is why the suite reports winding identity alongside distance, and why it
-computes it from the surfaces themselves rather than through the fit's
-transform. It is also the honest limit of the distance columns everywhere
-else in this document: they detect regions the fit did not model at all
-(large distances) and sub-pitch misplacement, and nothing in between.
+Scope of this result, stated carefully, because it is easy to overstate.
+It says that a **distance-only** evaluation cannot judge a scroll fit,
+including a naive version of this suite: it is the reason the suite carries
+winding identity next to distance, and the honest limit of every distance
+column in this document, which sees regions a fit did not model at all and
+sub-pitch misplacement, and nothing in between. It is **not** a criticism of
+villa's satisfaction metrics, which check a spiral-space tolerance of 0.45
+winding pitches and would also catch a whole-pitch error. The difference
+between the two remains the one stated in DESIGN.md: satisfaction checks
+identity through the fit's own transform and only on the fit's own inputs,
+while this suite checks it on withheld evidence, from the surfaces
+themselves.
 
 ## 5. Leakage control: hash audit plus geometric measurement
 
