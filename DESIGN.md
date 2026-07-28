@@ -184,7 +184,7 @@ the dominant pattern was fixtures pinned at a null point where weighted equals
 unweighted, min equals max, one input equals many, and a passed value equals
 its default. Each survivor now has a test built to discriminate (asymmetric
 sizes, known displacement deltas, reference implementations inside the test),
-and the audit currently stands at 54/54 detected. Two of the new tests were
+and the audit currently stands at 53/53 detected. Two of the new tests were
 themselves first written too symmetrically to discriminate and were caught by
 the audit: the audit polices the tests, including the new ones.
 

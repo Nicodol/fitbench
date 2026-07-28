@@ -23,16 +23,28 @@ METRICS = (
     "sheet_consistency",
     "single_winding_consistency",
     "dist_p50",
+    "dist_p99",
     "frac_within_tau",
     "normal_angle_p90_deg",
 )
 
 
-def load(path: Path) -> dict:
+def load(path: Path, unseen: bool) -> dict:
     data = json.loads(path.read_text(encoding="utf-8"))
     if "heldout_patches" not in data:
         raise SystemExit(f"{path}: no per-patch scores (was it an intrinsic-only report?)")
-    return {r["patch_id"]: r for r in data["heldout_patches"]}
+    rows = {}
+    for r in data["heldout_patches"]:
+        if not unseen:
+            rows[r["patch_id"]] = r
+            continue
+        block = r.get("unseen")
+        if block and block.get("n_points"):
+            rows[r["patch_id"]] = block
+    if unseen and not rows:
+        raise SystemExit(f"{path}: no per-patch unseen block "
+                         "(score with --fit-inputs to produce one)")
+    return rows
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -41,9 +53,14 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("report_b")
     p.add_argument("--draws", type=int, default=20000)
     p.add_argument("--seed", type=int, default=20260731)
+    p.add_argument("--unseen", action="store_true",
+                   help="resample the per-patch UNSEEN blocks instead of the "
+                        "full-patch numbers (both reports must have been "
+                        "scored with --fit-inputs)")
     args = p.parse_args(argv)
 
-    a_by_id, b_by_id = load(Path(args.report_a)), load(Path(args.report_b))
+    a_by_id = load(Path(args.report_a), args.unseen)
+    b_by_id = load(Path(args.report_b), args.unseen)
     shared = sorted(set(a_by_id) & set(b_by_id))
     if not shared:
         raise SystemExit("the two reports share no patch")

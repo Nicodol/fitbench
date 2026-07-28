@@ -65,13 +65,15 @@ QuadSurfaces with `winding_column_ranges`); producer-agnostic by design.
   and reported as collapsed, not as a false crossing; a planted leaked patch
   is caught by the leakage profile. Null controls are bounded by computed
   chordal-discretization limits, not magic numbers.
-- The tests are themselves audited by mutation (54 injected bugs, all
-  detected, a CI job on three OSes), and the whole package went through two
-  independent-style review rounds (adversarial code review, claims audit
-  against artifacts, upstream check, test-quality audit with its own
-  counter-mutations) whose findings are documented and fixed in
-  VALIDATION.md, including a public correction of our own first demo
-  numbers.
+- The tests are themselves audited by mutation (53 injected bugs, all
+  detected, a CI job on three OSes; two further candidates were left out as
+  equivalent mutants rather than counted). Measured sensitivity floors say
+  how small a defect each metric still catches.
+- The whole package went through three independent-style review rounds
+  (adversarial code review, claims audit against artifacts, upstream check,
+  test-quality audit writing its own counter-mutations), each attacking the
+  previous round's fixes. Every finding, including the ones that were in our
+  own published numbers, is documented and corrected in VALIDATION.md.
 - Real data: the loader reads 500/500 sampled verified patches of PHerc.
   Paris 4; on overlapping verified patches, the typical pair agrees to
   sub-voxel across the geometric overlap zone (per-pair p95 median 0.80 vox),
@@ -82,26 +84,26 @@ QuadSurfaces with `winding_column_ranges`); producer-agnostic by design.
 
 Two real `fit_spiral` runs on PHerc. Paris 4 (z 10600-10900, consumer GPU,
 identical settings and step budget), differing in one input switch
-(`use_verified_patches`), both scored against the same 94 sealed patches.
-The dense run's numbers are quoted on its **unseen evidence** only (15,437
-points farther than 2 vox from every input it consumed; parrhesia's leakage
-audit measures that 54.8% of the naive "sealed" area was effectively visible
-to it through overlapping input selections):
+(`use_verified_patches`). Both are scored on **the same 15,437 points**: the
+sealed evidence lying more than 2 vox from every patch the dense run
+consumed, so neither run could have seen it. parrhesia's leakage audit is
+what identifies those points: 54.8% of the naively "sealed" evidence was in
+fact within half a voxel of an input the dense run had, through overlapping
+patch selections that no name- or hash-level split can see.
 
 - *Dense run* (fit-side patches): the two instruments agree. Satisfaction
-  5/389 patches (1.3%); parrhesia median distance 4.21 vox, 67.6% within
-  tau = 6, mean sheet consistency 0.40. A deliberately cheap fit
-  (1,500 steps, 8 GB VRAM), judged weak by both.
+  5/389 patches (1.3%); parrhesia median distance 4.21 vox, p99 17.7 vox,
+  67.6% within tau = 6. A deliberately cheap fit (1,500 steps, 8 GB VRAM),
+  judged weak by both.
 - *Sparse run* (no patches, the minimal-input regime #1237 declares a valid
-  use-case): patch satisfaction is an **empty denominator (0/0)**, and the
-  held-out median distance and within-tau are practically indistinguishable
-  from the dense run (4.47 vox, 67.4%), so a distance-only check would also
-  see nothing. What the held-out suite exposes and localizes: sheet identity
-  degrades (mean consistency 0.40 -> 0.24, the surface passes near papyrus
-  but on the wrong windings) and catastrophic tails appear (p99 17.7 -> 212
-  vox, max 23.9 -> 330 vox: parts of the window are simply not modeled).
-  Resampling the held-out patches puts that consistency gap at 0.195, 95%
-  interval [0.114, 0.266].
+  use-case): patch satisfaction is an **empty denominator (0/0)**. The median
+  held-out distance barely moves (5.01 vox), so a summary-number check would
+  call the two runs comparable. The distribution says otherwise: p90 goes
+  from 9.6 to 53.9 vox and p99 from 17.7 to **246 vox**, twelve winding
+  pitches, which is what an unmodelled region looks like in numbers.
+  Resampling the patches (`scripts/bootstrap_ci.py`) confirms the distance
+  gaps clear zero and reports honestly that the sheet-consistency and
+  within-tau gaps, though pointing the same way, do not.
 
 Reports, the leakage profile, and the delta table (`parrhesia compare`) ship
 in `examples/`; VALIDATION.md section 6 also documents, openly, every

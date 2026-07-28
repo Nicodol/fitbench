@@ -598,6 +598,37 @@ def test_unseen_aggregate_is_not_a_copy_of_the_main_one(clean_family):
     assert agg2["unseen"]["frac_within_tau"] != unseen["frac_within_tau"]
 
 
+def test_per_patch_unseen_block_matches_its_own_points(clean_family):
+    """The per-patch unseen block is what lets a reader resample the unseen
+    column; every field must be recomputable from that patch's own unseen
+    points, and it must differ from the full-patch numbers."""
+    from parrhesia.metrics import largest_sheet_fraction
+
+    held = sample_patch(11, PITCH, (0.4, 2.4), (8.0, 52.0), rows=8, cols=24)
+    cover = sample_patch(11, PITCH, (0.4, 1.4), (8.0, 52.0), rows=8, cols=24)
+    swapped = swap_band(clean_family, 11, 12, theta_band=(1.6, 2.6))
+    scores, _ = score_patches(
+        {"h": held}, swapped, input_family={"i": cover}, unseen_min_dist=2.0, tau=3.0
+    )
+    s = scores[0]
+    block = s.to_dict()["unseen"]
+    mask = s.point_input_dist > 2.0
+    d, ang = s.point_dist[mask], s.point_normal_angle[mask]
+    assert block["n_points"] == int(mask.sum()) < s.n_points
+    assert block["dist_p50"] == float(np.percentile(d, 50))
+    assert block["dist_p99"] == float(np.percentile(d, 99))
+    assert block["dist_max"] == float(d.max())
+    assert block["frac_within_tau"] == float((d <= 3.0).mean())
+    assert block["sheet_consistency"] == largest_sheet_fraction(s.point_sheet[mask])
+    assert block["normal_angle_p90_deg"] == float(np.percentile(ang, 90))
+    # It must actually say something different from the full-patch numbers.
+    assert block["sheet_consistency"] != s.sheet_consistency
+
+    # No fit inputs, no unseen block.
+    plain, _ = score_patches({"h": held}, swapped)
+    assert "unseen" not in plain[0].to_dict()
+
+
 def test_min_unseen_points_boundary(clean_family):
     """The 8-point floor for entering the unseen aggregate is load-bearing:
     7 unseen points exclude a patch, 14 include it."""

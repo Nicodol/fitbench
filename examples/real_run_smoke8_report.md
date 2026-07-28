@@ -1,6 +1,6 @@
 # parrhesia report
 
-- parrhesia: 0.3.0
+- parrhesia: 0.4.0
 - meshes: G:\projets\vesuvius\runs\smoke8\2026-07-28_s1_slice-10600-10900_389-patch_smoke8\meshes\fitted_smoke8
 - patches: G:\projets\vesuvius\windows\z10600_10900\heldout_strict
 - variant: spliced

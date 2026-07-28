@@ -54,7 +54,7 @@ identifies the failure mode.
 deliberate bugs one at a time and requires the suite to fail on each, then
 pass unmutated. The list covers the geometry engine, the metrics and their
 published aggregates, the CLI glue, the intrinsic checks, and the split,
-audit and leakage code. **Result: 54/54 detected.**
+audit and leakage code. **Result: 53/53 detected.**
 
 Two candidate mutations were deliberately left out of the list rather than
 counted, because the suite cannot kill them and a mutation that cannot be
@@ -172,37 +172,59 @@ the 15,437 points farther than 2 vox from every input the fit consumed. The
 sparse run consumed no patches, so all of its evidence is unseen by
 construction.
 
-| measure | dense run, unseen evidence | sparse run (no patches) |
+Both columns are scored on **exactly the same 15,437 points**: the sealed
+evidence that lies more than 2 vox from every patch the dense run consumed,
+so neither run could have seen it. (Scoring each run on its own unseen set
+instead would compare two different point sets and flatter whichever run saw
+more; the sparse run saw none.)
+
+| measure | dense run | sparse run (no patches) |
 |---|---|---|
 | villa satisfaction, patches | 5/389 satisfied (1.3%) | **0/0 (empty denominator)** |
 | villa satisfaction, unattached pcl points | 54.8% | 49.9% |
-| parrhesia surface distance p50 | 4.21 vox | 4.47 vox |
-| within tau = 6 vox | 67.6% | 67.4% |
-| parrhesia surface distance p99 / max | 17.7 / 23.9 vox | **212.2 / 330.0 vox** |
-| sheet consistency (mean) | 0.40 | **0.24** |
-| normal agreement p90 (pooled over points) | 49.9 deg | 47.6 deg |
+| parrhesia surface distance p50 | 4.21 vox | 5.01 vox |
+| within tau = 6 vox | 67.6% | 60.1% |
+| parrhesia surface distance p90 | 9.6 vox | **53.9 vox** |
+| parrhesia surface distance p99 / max | 17.7 / 23.9 vox | **246.0 / 330.0 vox** |
+| sheet consistency (mean) | 0.40 | 0.33 |
+| normal agreement p90 (pooled over points) | 49.9 deg | 48.9 deg |
 
-Resampling the held-out patches (`scripts/bootstrap_ci.py`, 20,000 paired
-draws) puts the sheet-consistency gap at 0.195 with a 95% interval of
-[0.114, 0.266]: another draw of held-out patches would not have reversed it.
-The within-tau gap, by contrast, is 0.055 [0.008, 0.105], barely clear of
-zero, which is why the distance columns are described below as practically
-indistinguishable rather than identical.
+Which of those differences are real, and which are the luck of the draw?
+`scripts/bootstrap_ci.py --unseen` resamples the 78 patches that carry unseen
+points (20,000 paired draws) and answers per metric:
+
+| metric (point-weighted mean of per-patch values) | gap, dense - sparse | 95% interval |
+|---|---|---|
+| surface distance p50 | -18.5 vox | [-43.6, -2.3] |
+| surface distance p99 | -24.6 vox | [-53.9, -3.1] |
+| within tau | +0.074 | [-0.007, 0.165] (spans zero) |
+| sheet consistency | +0.065 | [-0.058, 0.173] (spans zero) |
+| normal agreement p90 | -1.8 deg | [-7.7, 3.7] (spans zero) |
+
+So on this pair, the discriminating measure is the **distance distribution's
+tail**, not sheet identity: the sheet-consistency and within-tau gaps point
+the right way but are inside resampling noise, and we say so rather than
+quoting them as evidence. A suite that could not tell those cases apart would
+be worth less than one that can.
 
 Reading. Both runs are deliberately cheap (1,500 steps, coarse flow field,
 8 GB VRAM), and on the dense run the two instruments agree: a weak fit,
 judged weak by both. The sparse run is the regime the project explicitly
 wants to support (fits from minimal verified inputs; villa #1237 was closed
-as won't-fix for exactly that reason), and there patch satisfaction is an
-empty denominator while the held-out **median** distance and within-tau are
-practically indistinguishable from the dense run: a distance-only check
-would also see nothing. What actually separates them is sheet identity
-(consistency 0.40 vs 0.24: the sparse surface passes near papyrus but far
-more often on the wrong winding) and catastrophic tails (p99 at 212 vox: ten
-winding pitches; parts of the window are simply not modeled), which only the
-held-out, multi-metric view exposes and localizes. Normal agreement does not
-separate them (49.9 vs 47.6 deg): on this pair it is not the discriminating
-measure, and the table says so rather than dropping the row.
+as won't-fix for exactly that reason). There, patch satisfaction has an empty
+denominator: nothing to report, on a run that is measurably worse.
+
+What a cursory check would see: almost nothing. The median held-out distance
+moves from 4.21 to 5.01 vox, less than one voxel, on a fit that has lost
+whole regions of the window. What the full distribution shows: p90 goes from
+9.6 to 53.9 vox and p99 from 17.7 to 246 vox, twelve winding pitches, which
+is what "this part of the scroll is not modelled at all" looks like in
+numbers. Sheet identity moves the same way (0.40 to 0.33) but not far enough
+to clear the resampling interval on this evidence.
+
+That is the argument, and it survives its own scrutiny: an evaluation
+reporting one summary number would have called these two runs comparable;
+satisfaction could not have called them anything at all.
 
 Corrections made along the way, stated plainly, because they are the method
 working:
@@ -247,8 +269,8 @@ The villa satisfaction rows are verbatim log excerpts:
 
 ```bash
 uv sync --group dev
-uv run pytest -q                      # 85 tests: engine, defect matrix, e2e CLI
-uv run python scripts/mutation_check.py   # 54/54 injected bugs must be detected
+uv run pytest -q                      # 86 tests: engine, defect matrix, e2e CLI
+uv run python scripts/mutation_check.py   # 53/53 injected bugs must be detected
 uv run python scripts/real_data_smoke.py <verified_patches_dir> 500
 uv run python scripts/real_overlap_check.py <verified_patches_dir> 150
 ```

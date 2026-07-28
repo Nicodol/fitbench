@@ -67,7 +67,7 @@ Three external-style review rounds (adversarial code review, claims audit
 against artifacts, upstream check, test-quality audit writing its own
 counter-mutations) shaped v0.2 to v0.4: the evidence-leakage audit, the
 drift-aware sheet consistency, the family-grouped split with geometry-hash
-twin merging, and a test suite hardened until 54/54 injected bugs are
+twin merging, and a test suite hardened until 53/53 injected bugs are
 detected. Each round attacked the previous round's fixes and found more;
 VALIDATION.md records what each caught, including the times it was our own
 published numbers that were wrong.

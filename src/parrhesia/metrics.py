@@ -231,6 +231,7 @@ class PatchScore:
     normal_angle_p90_deg: float
     winding_agreement: float | None  # None when the patch has no winding grid
     n_points_unseen: int | None = None  # None when no fit inputs were provided
+    _unseen_min_dist: float = DEFAULT_UNSEEN_MIN_DIST
     # per-point payload for overlays and subset aggregation (not serialized)
     point_dist: np.ndarray = field(default=None, repr=False)
     point_winding: np.ndarray = field(default=None, repr=False)
@@ -259,7 +260,30 @@ class PatchScore:
         }
         if self.n_points_unseen is not None:
             out["n_points_unseen"] = self.n_points_unseen
+            out["unseen"] = self.unseen_metrics()
         return out
+
+    def unseen_metrics(self) -> dict | None:
+        """The same per-patch numbers, restricted to the points beyond the
+        leakage threshold. Published per patch so a reader can resample the
+        unseen column, not only the pooled one."""
+        if self.point_input_dist is None:
+            return None
+        mask = self.point_input_dist > self._unseen_min_dist
+        n = int(mask.sum())
+        if n == 0:
+            return {"n_points": 0}
+        d, ang = self.point_dist[mask], self.point_normal_angle[mask]
+        return {
+            "n_points": n,
+            "dist_p50": float(np.percentile(d, 50)),
+            "dist_p90": float(np.percentile(d, 90)),
+            "dist_p99": float(np.percentile(d, 99)),
+            "dist_max": float(d.max()),
+            "frac_within_tau": float((d <= self.tau).mean()),
+            "sheet_consistency": largest_sheet_fraction(self.point_sheet[mask]),
+            "normal_angle_p90_deg": float(np.percentile(ang, 90)),
+        }
 
 
 def score_patch(
@@ -346,6 +370,7 @@ def score_patch(
         normal_angle_p90_deg=float(np.percentile(angles, 90)),
         winding_agreement=agreement,
         n_points_unseen=n_unseen,
+        _unseen_min_dist=unseen_min_dist,
         point_dist=dist,
         point_winding=assigned,
         point_zyx=pts,

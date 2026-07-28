@@ -1,6 +1,6 @@
 # parrhesia report
 
-- parrhesia: 0.3.0
+- parrhesia: 0.4.0
 - meshes: G:\projets\vesuvius\runs\sparse2\2026-07-28_s1_slice-10600-10900_0-patch_sparse2\meshes\fitted_sparse2
 - patches: G:\projets\vesuvius\windows\z10600_10900\heldout_strict
 - variant: spliced
@@ -9,10 +9,11 @@
 - z_range: 10600,10900
 - umbilicus: G:\projets\vesuvius\spiral-dataset\PHercParis4\umbilicus.json
 - manifest: G:\projets\vesuvius\parrhesia\examples\PHercParis4_v1_split_manifest.json
-- fit_inputs: None
-- unseen_min_dist: None
+- fit_inputs: G:\projets\vesuvius\windows\z10600_10900\verified_fit
+- unseen_min_dist: 2.0
 - patches_dir_listed_in_manifest: 98
 - manifest_n_heldout: 985
+- fit_inputs_hash_audit: clean
 
 ## Held-out aggregate
 
@@ -24,6 +25,27 @@
 | sheet consistency (mean / min) | 0.244 / 0.045 |
 | single-winding consistency (mean / min) | 0.241 / 0.045 |
 | winding agreement | None |
+
+## Evidence leakage vs fit inputs
+
+| measure | value |
+|---|---|
+| n input patches | 541 |
+| frac within 0.5 vox | 54.8% |
+| frac within 1 vox | 63.2% |
+| frac within 2 vox | 68.7% |
+| frac within 6 vox | 72.3% |
+
+## Unseen evidence only (points > 2 vox from every fit input)
+
+| metric | value |
+|---|---|
+| patches used / excluded (too few unseen points) | 69 / 25 |
+| points | 15437 |
+| dist p50 / p90 / p99 (vox) | 5.009 / 53.857 / 245.974 |
+| within tau | 60.1% |
+| sheet consistency (mean / min) | 0.331 / 0.052 |
+| normal angle p90 (deg) | 48.9 |
 
 ## Per patch (worst first)
 
