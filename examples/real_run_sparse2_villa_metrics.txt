@@ -1,0 +1,15 @@
+# villa fit_spiral satisfaction metrics, printed at the end of the run.
+# Run: sparse2 (sparse inputs: no patches and no fibers; same window, settings
+# and step budget as smoke8, use_verified_patches=false being the one changed
+# input switch), PHerc. Paris 4, z 10600-10900, 1,500 steps, RTX 3060 Ti,
+# 2026-07-28.
+# Note: an earlier sparse companion (sparse1) accidentally left villa's fiber
+# input enabled (257 collections, 6,397 points) and was discarded for the A/B;
+# this run replaces it.
+# Verbatim excerpt from the run log (stdout of scripts/spiral/fit_spiral.py).
+satisfied_patches = 0/0 (0.0%)
+satisfied_patches_area_weighted = 0.0/0.0 (0.0%)
+boundary_satisfied_patches = 0/0 (0.0%)
+satisfied_area = 0.0/0.0 (0.0%)
+satisfied_unattached_pcls = 17/39 (43.6%)
+satisfied_unattached_pcl_points = 336/674 (49.9%)
