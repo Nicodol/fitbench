@@ -64,6 +64,33 @@ every reachable configuration, and disabling the split's self-check cannot
 change any output, since the merge makes a poisoned split unreachable by
 construction. Both are noted in `scripts/mutation_check.py`.
 
+**What 53/53 does and does not mean, stated once so it is not read as more
+than it is.** That list is a regression harness: it pins bugs we already know
+how to describe, and it is what keeps them from coming back. It is not a claim
+of exhaustiveness, and no mutation score is. Every independent review round run
+against this suite has found fresh survivors, and the most recent one wrote 148
+counter-mutations of its own and killed 59. The survivors concentrate outside
+the numerical core, and the honest summary of where this suite is strong and
+weak is:
+
+- *Audited hard, and repeatedly*: the distance engine (the brute-force,
+  independent-sampling and degenerate-triangle checks kill everything injected
+  into the closest-point code), the aggregates in `metrics.py` (the tests
+  recompute values from the per-point payload instead of comparing to
+  constants), the continuous winding coordinate and the sheet topology, and the
+  split protocol.
+- *Thin*: `report.py`, whose Markdown rendering is asserted mostly by substring
+  presence; the CLI's default option values, which every test passes
+  explicitly; the z axis of the intrinsic localization (theta is checked, z is
+  not); several intrinsic thresholds that no fixture straddles; and the
+  null control on the inflated-gap indicator.
+
+Those are gaps in test coverage, not known wrong values: the published numbers
+in sections 4 to 6 were re-derived from the raw artifacts, the shipped
+`report.md` files were checked field by field against their `report.json`, and
+a clean synthetic family does report zero violations, zero collapsed and zero
+inflated gaps. Closing the coverage gaps is worth doing and is not done.
+
 Sensitivity floors, so a reader can ask "how small a defect would this have
 missed?" (`scripts/sensitivity_floor.py`, measured on the synthetic fixture,
 pitch 10 vox): a smooth radial drift is caught from **1.1 vox**; a sheet swap
@@ -119,9 +146,19 @@ asked.
   (the closest partner face must be interior, not rim): the typical pair
   agrees to sub-voxel across its zone (per-pair p95 distance, median 0.80
   vox); 80.7% of pairs are within 2 vox median.
-  The residual tail clusters near one winding pitch (~22 vox at full
-  resolution), consistent with `overlapping.json` also listing radially
-  adjacent patches; see DESIGN.md.
+  The remaining pairs are not an engine error, and the reason is villa's own
+  definition: `overlapping.json` records that two surfaces touch *somewhere*,
+  not that they trace the same sheet throughout. Both of its geometric
+  producers test at 2 voxels (`vc_seg_add_overlap.cpp`, and `QuadSurface.cpp`'s
+  `overlap()`, the latter on a random sample of points), and one of them also
+  lists the segment an expansion grew from with no geometric test at all
+  (`vc_grow_seg_from_seed.cpp`). Measured on the same 150 pairs: 23 of the 29
+  pairs whose median exceeds 5 vox do touch, at a minimum distance of 0.00 vox
+  with 17% to 49% of their points within 2 vox, and diverge elsewhere, so their
+  per-pair median describes a mixed population. Per-pair medians reach 1,998
+  vox at the extreme. An earlier version of this line explained the tail by
+  neighbouring windings instead; villa's 2 voxel tolerance rules that out, since
+  it cannot pair surfaces a winding pitch apart. See DESIGN.md.
 
 ## 4b. The blind spot a distance metric cannot cover, measured on real data
 
@@ -180,8 +217,8 @@ end by the CLI tests.
 
 **A hash audit is not a physical guarantee, so it is not the claim.** On real
 Paris 4 data, verified patches overlap heavily: our own adversarial review
-measured that with the v1 name-level split, 54.8% of the "held-out" area of
-the demo window lies within 0.5 vox of some fit-side input patch (66 of its 98
+measured that with the v1 name-level split, 54.8% of the "held-out" *points* of
+the demo window lie within 0.5 vox of some fit-side input patch (66 of its 98
 held-out patches have a `_sel_` sibling of the same parent on the fit side).
 That channel is invisible to any name- or hash-level check. Since v0.2,
 every run scored with `--fit-inputs` therefore measures leakage geometrically:
@@ -207,8 +244,8 @@ RTX 3060 Ti, identical settings and step budget), differing **in one input
 switch** (`use_verified_patches`), both scored against the same 94 sealed
 patches (49,458 quad centers, scoring restricted to the fitted window).
 
-For the dense run, parrhesia's leakage audit measures that 54.8% of the sealed points
-area lies within 0.5 vox of some fit-side input surface (overlapping patch
+For the dense run, parrhesia's leakage audit measures that 54.8% of the sealed
+points lie within 0.5 vox of some fit-side input surface (overlapping patch
 selections; section 5), so the honest column for it is the **unseen** one:
 the 15,437 points farther than 2 vox from every input the fit consumed. The
 sparse run consumed no patches, so all of its evidence is unseen by
@@ -225,8 +262,9 @@ prints both counts.
 
 | measure | dense run | sparse run (no patches) |
 |---|---|---|
+| measure | dense run | sparse run (no patches) |
+|---|---|---|
 | villa satisfaction, patches | 5/389 satisfied (1.3%) | **0/0 (empty denominator)** |
-| villa satisfaction, unattached pcl points | 54.8% | 49.9% |
 | parrhesia surface distance p50 | 4.21 vox | 5.01 vox |
 | within tau = 6 vox | 67.6% | 60.1% |
 | parrhesia surface distance p90 | 9.6 vox | **53.9 vox** |
@@ -234,17 +272,39 @@ prints both counts.
 | sheet consistency (mean) | 0.40 | 0.33 |
 | normal agreement p90 (pooled over points) | 49.9 deg | 48.9 deg |
 
+Every parrhesia row above is the same 15,437 points on both sides. villa's
+other satisfaction channel is not, and is therefore quoted separately rather
+than as a row: satisfied unattached-pcl points are 211/385 (54.8%) for the
+dense run and 336/674 (49.9%) for the sparse one. Those denominators differ
+because attaching a point collection to a patch removes it from the unattached
+set, so the dense run's own inputs change which points that channel scores.
+Two different populations cannot be compared as a gap. (The 54.8% there is a
+coincidence of rounding with the 54.8% leakage figure above, which is a
+different quantity entirely: 211/385 of villa's pcl points satisfied, against
+0.5485 of our sealed points sitting within half a voxel of a fit input.)
+
 Which of those differences are real, and which are the luck of the draw?
 `scripts/bootstrap_ci.py --unseen` resamples the 78 patches that carry unseen
-points (20,000 paired draws) and answers per metric:
+points (20,000 paired draws) and answers per metric. **Read the levels before
+the gaps**: this table aggregates differently from the one above. It is a
+point-weighted mean of per-patch values, so for a percentile metric it is the
+mean of per-patch percentiles, not the pooled percentile. The two answer
+different questions and do not have to agree; the script prints the same
+warning.
 
-| metric (point-weighted mean of per-patch values) | gap, dense - sparse | 95% interval |
-|---|---|---|
-| surface distance p50 | -18.5 vox | [-43.6, -2.3] |
-| surface distance p99 | -24.6 vox | [-53.9, -3.1] |
-| within tau | +0.074 | [-0.007, 0.165] (spans zero) |
-| sheet consistency | +0.065 | [-0.058, 0.173] (spans zero) |
-| normal agreement p90 | -1.8 deg | [-7.7, 3.7] (spans zero) |
+| metric (point-weighted mean of per-patch values) | dense | sparse | gap, dense - sparse | 95% interval |
+|---|---|---|---|---|
+| surface distance p50 | 4.46 vox | 22.91 vox | -18.5 vox | [-43.6, -2.3] |
+| surface distance p99 | 15.42 vox | 40.00 vox | -24.6 vox | [-53.9, -3.1] |
+| within tau | 0.675 | 0.601 | +0.074 | [-0.007, 0.165] (spans zero) |
+| sheet consistency | 0.396 | 0.332 | +0.065 | [-0.058, 0.173] (spans zero) |
+| normal agreement p90 | 38.7 deg | 40.5 deg | -1.8 deg | [-7.7, 3.7] (spans zero) |
+
+The sparse column is where the two aggregations part company: a per-patch mean
+of 22.91 vox against a pooled median of 5.01, because a handful of patches the
+sparse fit missed entirely carry very large per-patch medians while most points
+still sit close to some surface. That is the same fact the pooled p90 and p99
+report, seen through a different lens.
 
 So on this pair, the discriminating measure is the **distance distribution's
 tail**, not sheet identity: the sheet-consistency and within-tau gaps point
@@ -267,8 +327,44 @@ is what "this part of the scroll is not modelled at all" looks like in
 numbers. Sheet identity moves the same way (0.40 to 0.33) but not far enough
 to clear the resampling interval on this evidence.
 
-That is the argument, and it survives its own scrutiny: an evaluation
-reporting one summary number would have called these two runs comparable;
+One more thing this pair says, and it is not flattering to half of this suite.
+The intrinsic checks, which consume no ground truth, rank the two runs the
+other way round: the sparse fit shows 10 radial-monotonicity violations against
+the dense fit's 48, 2 inflated inter-winding gaps against 67, and a slightly
+higher valid-vertex fraction on every winding (all four numbers are in
+[`examples/compare_smoke8_vs_sparse2.md`](examples/compare_smoke8_vs_sparse2.md)).
+That is not a contradiction, it is the limit of a check with no external
+reference: a surface family can be smooth, regular and self-consistent while
+sitting in the wrong place, and a fit with fewer constraints has fewer
+opportunities to contradict itself. The intrinsic checks earn their keep where
+no ground truth exists at all, including on a production fit trained on 100% of
+the patches, and they localize defects in (z, theta). They do not rank fits for
+accuracy. On this pair, held-out evidence is what does.
+
+Two robustness checks on the table itself, because both are objections a
+reader of villa's code will raise.
+
+*The spliced variant.* `fit_spiral` exports each winding twice, `wNNN` and
+`wNNN_spliced`, and the spliced one has the fit's own input patches rasterized
+into it verbatim (`spiral_helpers.py`, `_build_spliced_overlay`). The reports
+above use the spliced variant, so evidence lying near an input would be scored
+partly against a copy of that input. Rescored with `--variant plain`, the dense
+run's unseen p90, p99, max and normal agreement are unchanged to four decimals,
+unseen p50 moves by 0.004 vox and within-tau by 0.0001; the naive full-set
+numbers move by 0.05 to 0.26 vox. The sparse run has nothing to splice, so its
+two variants are bit-identical. The unseen aggregate is immune because it
+already excludes every point within 2 vox of an input, which is exactly where
+the splice lives.
+
+*What satisfaction could and could not say.* Patch satisfaction had an empty
+denominator on the sparse run. Its unattached-pcl channel did not: it reported
+54.8% against 49.9%, in the same direction as our conclusion, on two different
+populations. So the honest claim is not that satisfaction was blind here, it is
+that its patch channel was silent and its pcl channel was not comparable
+between the two runs.
+
+That is the argument, and it survives its own scrutiny: an evaluation reporting
+one summary number would have called these two runs comparable, and patch
 satisfaction could not have called them anything at all.
 
 Corrections made along the way, stated plainly, because they are the method
@@ -314,7 +410,7 @@ The villa satisfaction rows are verbatim log excerpts:
 
 ```bash
 uv sync --group dev
-uv run pytest -q                      # 86 tests: engine, defect matrix, e2e CLI
+uv run pytest -q                      # 98 tests: engine, defect matrix, e2e CLI
 uv run python scripts/mutation_check.py   # 53/53 injected bugs must be detected
 uv run python scripts/real_data_smoke.py <verified_patches_dir> 500
 uv run python scripts/real_overlap_check.py <verified_patches_dir> 150

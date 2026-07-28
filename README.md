@@ -7,12 +7,15 @@ Built for the "devise better evaluation suites" item of the Vesuvius Challenge
 
 ## Why
 
-Whole-scroll fits (villa's `fit_spiral`, and other producers of per-winding surface sets) are
-currently judged by *constraint satisfaction*: what fraction of the fit's own inputs the final
-surface honors, measured through the fit's own fitted transform. That number answers "did the
-optimizer satisfy its constraints", not "is this surface geometrically right", and it cannot see
-errors in regions where no constraint was given. A fit with no patches at all has nothing to
-dissatisfy.
+villa optimises whole-scroll fits for *ink coverage*, and uses *constraint satisfaction* as the
+geometric cross-check against it: `scripts/spiral/autoresearch.md` calls ink area "the single
+number we optimise" and the satisfaction metrics "a cross-check, not a target", there to catch a
+surface "contorting ... to catch stray ink rather than fitting the scroll better".
+
+That cross-check role is what this tool is built for. Satisfaction answers "did the optimizer
+honor the constraints it was given", measured through the fit's own fitted transform, and it
+cannot see errors in regions where no constraint was given. A fit with no patches at all has
+nothing to dissatisfy: it reports 0/0.
 
 There is a second, structural reason a single number cannot do this job. A winding family fills
 space at the pitch, so every point inside the modelled region sits within half a pitch of some
@@ -87,6 +90,9 @@ published numbers that were wrong.
 
 - The `tifxyz` conventions and the satisfaction metrics this tool complements live in
   [ScrollPrize/villa](https://github.com/ScrollPrize/villa) (`volume-cartographer/scripts/spiral`).
+  villa also ships `vc_calc_surface_metrics` (`docs/surface_metrics.md`), which scores a single
+  tifxyz surface against hand-annotated ground-truth point collections, CPU-only and
+  checkpoint-free. DESIGN.md says what it covers and what it leaves to this suite.
 - [windcheck](https://github.com/joe-carr-data/windcheck) pioneered label-free consistency checking
   for individual traced segments; parrhesia targets whole-scroll fit runs and run-to-run comparison.
 - The vesuvius-sheet-tools thread's public PHerc1218 input pack is a candidate second test case.

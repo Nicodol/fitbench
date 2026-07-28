@@ -9,14 +9,34 @@ Form-ready text.
 **What problem does this solve?**
 
 The 2026 open problems ask for "better evaluation suites" for the spiral fit.
-Today a whole-scroll fit is judged by its satisfaction metrics: the fraction
-of its *own inputs* it honors, measured *through its own fitted transform*,
-computable only with the checkpoint. That leaves three blind spots: the
-measure degenerates exactly where evidence is sparse (with few or no patches
-in a region there is little or nothing to dissatisfy), a systematically wrong
-deformation moves the goalposts with the surface, and a finished run folder
-(or a surface set from another producer, e.g. ScrollFiesta) cannot be scored
-at all.
+
+villa optimises ink coverage, not geometry: `scripts/spiral/autoresearch.md`
+says "The single number we optimise is" recovered ink area, and that the
+satisfaction metrics "are **not the objective** ... a cross-check, not a
+target". It also says what the cross-check is for: "if ink coverage climbs
+while the satisfaction metrics fall off a cliff, be suspicious that you are
+contorting the surface to catch stray ink rather than fitting the scroll
+better."
+
+So the open slot is the *geometric cross-check*, and satisfaction is what
+currently fills it: the fraction of the fit's *own inputs* it honors, with the
+target derived from each patch's own image under the fit's transform. Three
+properties limit it there. It degenerates exactly where evidence is sparse,
+reporting 0/0 with no patches at all. Part of its ruler moves with the model
+(the spiral-space tolerance scales with the pitch the fit learned; an absolute
+6-voxel scan-space tolerance does anchor the rest). And it has no post-hoc
+entry point: `satisfaction_metrics.py` is a library taking a live transform
+object, so a finished run folder cannot be scored as it stands, and a surface
+set from another producer (ScrollFiesta, lasagna) has no villa checkpoint at
+all.
+
+villa does ship post-hoc geometric evaluation elsewhere, and this suite is
+positioned next to it rather than over it: `vc_calc_surface_metrics`
+(`docs/surface_metrics.md`) scores one tifxyz surface against hand-annotated
+ground-truth point collections, CPU-only and checkpoint-free, and
+`scripts/evaluation/eval_surface_tracer.py` drives it for the surface tracer.
+Neither scores a whole winding family against withheld tifxyz patches, and
+neither carries a sealed split or a leakage audit.
 
 The first point matters most for where the project is heading. Fitting with
 minimal verified inputs is an explicitly supported goal (villa #1237 was
@@ -77,8 +97,12 @@ QuadSurfaces with `winding_column_ranges`); producer-agnostic by design.
 - Real data: the loader reads 500/500 sampled verified patches of PHerc.
   Paris 4; on overlapping verified patches, the typical pair agrees to
   sub-voxel across the geometric overlap zone (per-pair p95 median 0.80 vox),
-  with a residual tail near one winding pitch consistent with radially
-  adjacent listings.
+  and the pairs that do not are villa's overlap semantics rather than an engine
+  error: `overlapping.json` records that two surfaces touch *somewhere* (a 2
+  voxel test on sampled points), and one of its producers also lists the
+  segment an expansion grew from with no geometric test. Measured: 23 of the 29
+  tail pairs do touch, at a minimum distance of 0.00 vox, and diverge
+  elsewhere.
 
 **The blind spot, measured on real data**
 

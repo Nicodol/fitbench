@@ -4,26 +4,74 @@ Working notes, kept in-repo so reviewers can check the reasoning. Dates are 2026
 
 ## The gap
 
-`fit_spiral` (villa, `volume-cartographer/scripts/spiral`) reports *satisfaction metrics*
-(`satisfaction_metrics.py`): for each input patch/pcl/track, the fraction of quad centers whose
-position, mapped through the **fitted** scan-to-spiral transform, lies within 0.45 winding pitches
-(spiral space) AND 6 voxels (scan space) of a snapped target winding. Three properties limit this
-as an evaluation:
+First, what villa optimises is not the satisfaction metrics. `scripts/spiral/autoresearch.md` is
+explicit: "The single number we optimise is" the ink area recovered by rendering the fitted meshes
+through an nnU-Net ink model, while the satisfaction metrics "are **not the objective** (ink
+coverage is), but they are a useful *diagnostic* ... a cross-check, not a target". The same
+document says what the cross-check is for: "if ink coverage climbs while the satisfaction metrics
+fall off a cliff, be suspicious that you are contorting the surface to catch stray ink rather than
+fitting the scroll better."
+
+So the role in question is not "the judge", it is **the geometric cross-check against an ink
+score**, and satisfaction is the one currently available for it. That is the role this suite is
+built for.
+
+`fit_spiral` reports *satisfaction metrics* (`satisfaction_metrics.py`): for each input
+patch/pcl/track, the fraction of quad centers whose position, mapped through the **fitted**
+scan-to-spiral transform, lies within 0.45 winding pitches (spiral space) AND 6 voxels (scan
+space) of a snapped target winding. Three properties limit it in the cross-check role:
 
 1. **Inputs only.** Only constraints given to the fit are scored, so the measure degenerates
-   exactly where evidence is sparse. This is not a corner case: fitting with minimal verified
-   inputs is an explicitly supported goal (villa #1237, closed as won't-fix: "runs with no patches
-   are a valid use-case... we want to be able to fit a spiral with minimal verified inputs"). The
-   leaner the inputs, the less satisfaction can say, and the more a held-out measure is needed.
-2. **Measured through the fit itself.** Both the transform and `dr_per_winding` come from the model
-   being evaluated. A systematically wrong deformation can move the goalposts with the surface.
-3. **Not post-hoc.** It needs the fit checkpoint, torch, and the input bundle; it cannot score a
-   run folder after the fact, nor surfaces produced by a different method (ScrollFiesta, lasagna).
+   exactly where evidence is sparse, and reports 0/0 when there are none. This is not a corner
+   case: fitting with minimal verified inputs is an explicitly supported goal (villa #1237, closed
+   as won't-fix: "runs with no patches are a valid use-case... we want to be able to fit a spiral
+   with minimal verified inputs"). The leaner the inputs, the less satisfaction can say, and the
+   more a held-out measure is needed. (Unverified patches are scored in a separate block, but they
+   are fit inputs too, carrying their own losses.)
+2. **Partly measured through the fit itself.** The target a patch is judged against is that
+   patch's own median shifted-radius, snapped to the nearest integer winding
+   (`satisfaction_metrics.py:242-248`); the spiral-space tolerance is `0.45 * dr_per_winding`
+   (`:75`), proportional to the pitch the fit learned; and the transform is applied forwards
+   (`:118`) and inverted (`:289`). Part of the ruler therefore moves with the model. An earlier
+   version of this note overstated it: the check is *not* purely relative, because an absolute
+   6-voxel scan-space tolerance (`:291-292`) anchors it, so a fit cannot satisfy a patch by
+   placing its surface far away from it. What remains is that the reference is internal.
+3. **No post-hoc entry point.** `satisfaction_metrics.py` is a library with no `__main__`; it is
+   called only from `fit_spiral.py` and `spiral_helpers.py`, and its signature takes a live
+   transform object and the learned `dr_per_winding`. Recomputing it needs the checkpoint, torch
+   and the input bundle. It cannot score a finished run folder as it stands, nor surfaces from a
+   different producer (ScrollFiesta, lasagna), which have no villa checkpoint at all. This one is
+   a tooling gap rather than a conceptual one: `find_inconsistent_windings.py` already rebuilds a
+   transform from a checkpoint without fitting, so a post-hoc satisfaction CLI is a short script
+   away for anyone with the checkpoint and a CUDA device.
 
-Adjacent tools do not fill the gap: `windcheck` (as rebuilt in July 2026) is a deterministic
-self-intersection validator for *individual traced surfaces*, label-free and threshold-free, from
-mesh geometry alone; `get_ink_metrics.py` is a GPU proxy through an nnU-Net ink ensemble. Nothing
-scores a whole-scroll winding family against evidence withheld from the fit.
+### What villa already has, and what it does not cover
+
+Stated plainly, because these are shipped and documented, and an evaluation tool that ignores
+them is not credible:
+
+- **`vc_calc_surface_metrics`** (`apps/src/`, documented in `docs/surface_metrics.md`) scores a
+  tifxyz surface against a hand-annotated ground-truth point collection, CPU-only, no checkpoint,
+  post hoc: `surface_missing_fraction`, `winding_error_fraction`, `in_surface_metric`. It needs
+  `vc_tifxyz_winding` first. This is the closest prior art to what parrhesia does, and it covers
+  three of the same ideas. It scores *one surface* against *point collections*; it does not score
+  a whole winding family against withheld tifxyz patches, and it carries no split protocol and no
+  leakage audit.
+- **`scripts/evaluation/eval_surface_tracer.py`** runs the surface *tracer* end to end against
+  ground-truth wrap labels and aggregates the metrics above. It re-runs the pipeline rather than
+  scoring an existing run folder, and it targets the tracer, not the spiral fit.
+- **`find_inconsistent_windings.py`** checks the loop holonomy of the winding *annotation graph*
+  and proposes a minimal set of annotations to fix. It audits the inputs' mutual consistency, not
+  the output surfaces, and it requires a checkpoint and a CUDA device.
+- **`get_ink_metrics.py`** is the objective itself: a GPU nnU-Net ink proxy. It says nothing about
+  a region with no ink, or about a scroll with no trained ink model.
+- **`windcheck`** (external, as rebuilt in July 2026) is a deterministic self-intersection
+  validator for *individual traced surfaces*, label-free and threshold-free, from mesh geometry
+  alone.
+
+What is left uncovered, and is what this suite does: scoring a whole-scroll winding family, post
+hoc and CPU-only, against verified patches withheld from the fit, with the leakage between "held
+out" and "consumed" measured rather than assumed.
 
 ## Operating point
 
@@ -35,6 +83,16 @@ scores a whole-scroll winding family against evidence withheld from the fit.
   - any directory of `tifxyz` surfaces whose winding ids are readable from the directory names
     (`^w(\d+)(_spliced)?(_<tag>)?$`). Producer-agnostic within that convention: a producer that
     names its surfaces differently needs a rename or a small loader change, not a new metric.
+- **The `_spliced` variant contains the fit's input patches verbatim.** `spiral_helpers.py`'s
+  `_build_spliced_overlay` rasterizes the original scan coordinates of every sufficiently
+  satisfied input patch into the exported mesh. Scoring that variant against evidence near an
+  input therefore partly measures the splice, not the fit. `--variant plain` avoids it entirely.
+  On the demo runs the effect on the published (unseen) numbers is nil, because the unseen
+  aggregate already excludes everything within 2 vox of an input: rescoring the dense run with
+  `--variant plain` leaves unseen p90, p99, max and normal agreement unchanged to four decimals
+  and moves unseen p50 by 0.004 vox; the naive full-set numbers move by 0.05 to 0.26 vox. The
+  sparse run has no patches to splice, so its two variants are identical. The leakage audit is
+  what makes this true, so it stops being true if you quote the naive numbers.
 - Evidence: held-out **verified patches** (`tifxyz`, with optional `mask.tif`, `winding.tif`),
   plus the umbilicus (z to yx polyline) when available.
 - Output: `report.json` (machine-readable), a Markdown summary, PNG overlays (windings over
@@ -221,12 +279,22 @@ the audit: the audit polices the tests, including the new ones.
   zone defined geometrically (points whose closest partner face is interior,
   not rim): the typical pair agrees to sub-voxel across its zone (per-pair p95
   distance: median 0.80 vox), and 80.7% of pairs have median <= 2 vox. The
-  remaining tail clusters around ~18 vox, close to one winding pitch at full
-  resolution (~173 um / 7.91 um per vox = ~22 vox): the working hypothesis is
-  that `overlapping.json` also lists radially adjacent patches on neighboring
-  windings, which a same-sheet check correctly reports at ~pitch distance. To
-  confirm against villa's overlap semantics before quoting publicly; the
-  sub-voxel head already validates loader + distance engine on real data.
+  sub-voxel head is what validates loader and distance engine on real data.
+  The rest is villa's overlap semantics, not an engine error, and the earlier
+  guess about it was wrong. `overlapping.json` records that two surfaces touch
+  *somewhere*: both geometric producers test at 2 voxels
+  (`apps/src/vc_seg_add_overlap.cpp`, `kOverlapTolerance = 2.0f`, and
+  `core/src/QuadSurface.cpp`'s `overlap()`, which samples random points and
+  accepts at `<= 2.0`), and `apps/src/vc_grow_seg_from_seed.cpp` additionally
+  inserts the segment an expansion grew from with no geometric test at all. A 2
+  voxel test cannot pair surfaces a winding pitch apart, so the earlier working
+  hypothesis (radially adjacent patches on neighbouring windings) is ruled out
+  by villa's own code. Measured on the same 150 pairs: of the 29 whose median
+  exceeds 5 vox, 23 do touch, at a minimum distance of 0.00 vox and with 17% to
+  49% of their points within 2 vox, then diverge elsewhere, so their per-pair
+  median describes a mixed population rather than a displacement. Per-pair
+  medians run to 1,998 vox at the extreme, which no same-sheet reading explains
+  and which the pair-level "touches somewhere" rule does.
 
 ## Non-goals v0
 
