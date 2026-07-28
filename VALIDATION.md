@@ -53,8 +53,26 @@ identifies the failure mode.
 `scripts/mutation_check.py` (a CI job on Linux, Windows and macOS) injects
 deliberate bugs one at a time and requires the suite to fail on each, then
 pass unmutated. The list covers the geometry engine, the metrics and their
-published aggregates, the CLI glue, the intrinsic checks, and the v0.2
-split/audit/leakage code. **Result: 39/39 detected.**
+published aggregates, the CLI glue, the intrinsic checks, and the split,
+audit and leakage code. **Result: 54/54 detected.**
+
+Two candidate mutations were deliberately left out of the list rather than
+counted, because the suite cannot kill them and a mutation that cannot be
+killed inflates the score without proving anything: dropping one redundant
+`resolve` call inside the geometry-hash merge is an equivalent mutant in
+every reachable configuration, and disabling the split's self-check cannot
+change any output, since the merge makes a poisoned split unreachable by
+construction. Both are noted in `scripts/mutation_check.py`.
+
+Sensitivity floors, so a reader can ask "how small a defect would this have
+missed?" (`scripts/sensitivity_floor.py`, measured on the synthetic fixture,
+pitch 10 vox): a smooth radial drift is caught from **1.1 vox**; a sheet swap
+from a band **0.05 rad wide, 2% of the patch's angular span**; a collapsed
+inter-winding gap from **0.5 vox of displacement** by the held-out distance;
+an alternating row tilt from **0.35 vox**. The intrinsic *collapsed* label is
+a deliberate classification threshold and only fires once 80% of the gap is
+gone, which is why the distance metric, not the label, is what catches small
+collapses.
 
 Honest notes, because this is where the value is. The first round (8
 mutations) scored 7/8; the survivor exposed a fixture too benign to need the
@@ -72,12 +90,23 @@ patch sizes, a known displacement delta bracketed from both sides, a
 multi-input leakage reference recomputed independently inside the test, and a
 reference implementation of the whole split draw. Two of the new tests were
 themselves first too symmetric to discriminate and were caught by the
-extended audit: the audit polices the tests, including the new ones. The same
-review passes also caught real integration gaps, all fixed and tested:
-villa's `umbilicus.json` `control_points` structure, the shared-seam column
-of combined surfaces, a sheet-consistency definition that misread many-turn
-bands as switches, and a split that byte-identical twins under unrelated
-names could poison.
+extended audit: the audit polices the tests, including the new ones. A third
+round then attacked *those* fixes with **55 counter-mutations, of which 42
+survived**, concentrated on the newest code (the rewritten sheet rule and the
+unseen block had one mutation entry between them). The pattern was the same
+every time: fixtures pinned at a point where two different definitions agree
+(weighted equals unweighted, min equals max, one input equals many, a passed
+value equals its default, x equals minus z). The suite now discriminates at
+each of those points, and the mutation list covers the new code.
+
+Those rounds caught real defects, all fixed and tested: villa's
+`umbilicus.json` `control_points` structure; the shared-seam column of
+combined surfaces; a sheet-consistency rule that rated a heavily switched
+patch 0.986 (section 6); a split that byte-identical twins under unrelated
+names could deadlock; an estimator mismatch that invented an "inversion" in
+the published table; a report line stating a false reason for an empty
+aggregate; and a block scheme that held out 11% of families when 20% was
+asked.
 
 ## 4. Real data (PHerc. Paris 4)
 
@@ -150,8 +179,15 @@ construction.
 | parrhesia surface distance p50 | 4.21 vox | 4.47 vox |
 | within tau = 6 vox | 67.6% | 67.4% |
 | parrhesia surface distance p99 / max | 17.7 / 23.9 vox | **212.2 / 330.0 vox** |
-| sheet consistency (mean, component-based) | 0.44 | **0.27** |
-| normal agreement p90 | 49.9 deg | 41.8 deg |
+| sheet consistency (mean) | 0.40 | **0.24** |
+| normal agreement p90 (pooled over points) | 49.9 deg | 47.6 deg |
+
+Resampling the held-out patches (`scripts/bootstrap_ci.py`, 20,000 paired
+draws) puts the sheet-consistency gap at 0.195 with a 95% interval of
+[0.114, 0.266]: another draw of held-out patches would not have reversed it.
+The within-tau gap, by contrast, is 0.055 [0.008, 0.105], barely clear of
+zero, which is why the distance columns are described below as practically
+indistinguishable rather than identical.
 
 Reading. Both runs are deliberately cheap (1,500 steps, coarse flow field,
 8 GB VRAM), and on the dense run the two instruments agree: a weak fit,
@@ -161,26 +197,42 @@ as won't-fix for exactly that reason), and there patch satisfaction is an
 empty denominator while the held-out **median** distance and within-tau are
 practically indistinguishable from the dense run: a distance-only check
 would also see nothing. What actually separates them is sheet identity
-(consistency 0.44 vs 0.27: the sparse surface passes near papyrus but far
+(consistency 0.40 vs 0.24: the sparse surface passes near papyrus but far
 more often on the wrong winding) and catastrophic tails (p99 at 212 vox: ten
 winding pitches; parts of the window are simply not modeled), which only the
-held-out, multi-metric view exposes and localizes.
+held-out, multi-metric view exposes and localizes. Normal agreement does not
+separate them (49.9 vs 47.6 deg): on this pair it is not the discriminating
+measure, and the table says so rather than dropping the row.
 
-Corrections made in v0.2, stated plainly, because they are the method working:
+Corrections made along the way, stated plainly, because they are the method
+working:
 
 - The previously published table compared against a sparse companion
   (sparse1) that had accidentally kept villa's fiber input enabled (257
   collections, 6,397 points), found by an independent claims audit of the run
   logs. The sparse run above (sparse2) has patches and fibers off; the one
   changed switch is real this time.
-- The previously published dense numbers were computed on all 49,458 sealed
-  points, 54.8% of which the fit had effectively seen through overlapping
-  input selections (found by our own adversarial review, and now measured by
-  the tool itself on every run scored with the fit's inputs). On leaked evidence the dense run
-  looked better than it is: its apparent normal-agreement advantage
-  (35.0 vs 48.8 deg in the old table) inverts on unseen evidence
-  (49.9 vs 41.8 deg). The headline contrast (sheet identity and tails)
-  survives, smaller but real, on clean evidence.
+- An earlier version of this table computed the dense numbers on all 49,458
+  sealed points, 54.8% of which the fit had effectively seen through
+  overlapping input selections (found by our own adversarial review, and now
+  measured by the tool itself on every run scored with the fit's inputs).
+  The dense column above is therefore restricted to unseen evidence.
+- That earlier table also compared normal agreement across two different
+  estimators: a point-weighted mean of per-patch p90 on one side, a pooled
+  p90 on the other. The "inversion" it reported was an artefact of that
+  mismatch, not a property of the runs. Both aggregates now pool over points,
+  like the distance percentiles, and the row above is homogeneous.
+- Between those two and this one, a rewritten sheet-consistency rule merged
+  fragments whose median winding coordinate was close. On one real patch that
+  chained 87 fragments spread over 4.6 turns into a single "continuous
+  sheet" (0.986) while 18% of that patch's own grid adjacencies were cut, and
+  the rest of the report scored it 0.399. Worse, the entire published gain of
+  that version came from that one patch. The rule was replaced by the
+  drift-aware one described in DESIGN.md (a hole is bridged only when the u
+  difference matches the patch's own drift across the gap), which rates that
+  patch 0.447 with a winning group spanning 0.93 turns instead of 4.59. The
+  numbers landed back within 0.01 of where the first, cruder definition had
+  them, this time for a reason that survives inspection.
 
 Artifacts: [`examples/real_run_smoke8_report.md`](examples/real_run_smoke8_report.md)
 (with the leakage profile and unseen aggregate),
@@ -195,8 +247,8 @@ The villa satisfaction rows are verbatim log excerpts:
 
 ```bash
 uv sync --group dev
-uv run pytest -q                      # 74 tests: engine, defect matrix, e2e CLI
-uv run python scripts/mutation_check.py   # 39/39 injected bugs must be detected
+uv run pytest -q                      # 85 tests: engine, defect matrix, e2e CLI
+uv run python scripts/mutation_check.py   # 54/54 injected bugs must be detected
 uv run python scripts/real_data_smoke.py <verified_patches_dir> 500
 uv run python scripts/real_overlap_check.py <verified_patches_dir> 150
 ```

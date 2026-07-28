@@ -53,14 +53,20 @@ def cmd_score(args) -> int:
 
     audit_meta: dict = {}
     if args.manifest:
-        unlisted, listed, n_heldout = audit_scored_patches(args.manifest, args.patches)
-        audit_meta["scored_patches_listed_heldout"] = listed
+        try:
+            unlisted, listed, n_heldout = audit_scored_patches(args.manifest, args.patches)
+        except (NotADirectoryError, FileNotFoundError) as exc:
+            raise SystemExit(str(exc)) from exc
+        # Directory counts, not scored counts: the aggregate's n_patches and
+        # n_patches_skipped say how many of these were actually scored.
+        audit_meta["patches_dir_listed_in_manifest"] = listed
         audit_meta["manifest_n_heldout"] = n_heldout
         if listed < n_heldout:
             print(
-                f"note: scoring {listed} of the manifest's {n_heldout} held-out "
-                "patches (a z window legitimately restricts this; a cherry-pick "
-                "would look the same, so the counts are recorded in the report).",
+                f"note: --patches offers {listed} of the manifest's {n_heldout} "
+                "held-out patches (a z window legitimately restricts this; a "
+                "cherry-pick would look the same, so the counts are recorded "
+                "in the report).",
                 file=sys.stderr,
             )
         if unlisted and not args.allow_unlisted_patches:
@@ -80,7 +86,7 @@ def cmd_score(args) -> int:
             )
             return 4
         if unlisted:
-            audit_meta["scored_patches_unlisted"] = len(unlisted)
+            audit_meta["patches_dir_unlisted"] = len(unlisted)
         if args.fit_inputs:
             offenders = audit_fit_inputs(args.manifest, args.fit_inputs)
             if offenders:

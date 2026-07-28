@@ -91,6 +91,33 @@ class WindingFamilySoup:
         )
 
 
+def _grid_adjacency(
+    u: np.ndarray, quad_idx: np.ndarray, max_jump: float
+) -> tuple[np.ndarray, dict[str, tuple[np.ndarray, np.ndarray]]]:
+    """Connected components of "grid-adjacent and u agrees within max_jump",
+    plus the surviving edges per grid direction (used to estimate drift)."""
+    from scipy.sparse import coo_matrix
+    from scipy.sparse.csgraph import connected_components
+
+    n = len(u)
+    rows, cols = quad_idx[:, 0], quad_idx[:, 1]
+    grid = np.full((rows.max() + 2, cols.max() + 2), -1, dtype=np.int64)
+    grid[rows, cols] = np.arange(n)
+    edges: dict[str, tuple[np.ndarray, np.ndarray]] = {}
+    for key, (da, db) in (("row", (1, 0)), ("col", (0, 1))):
+        a = grid[: grid.shape[0] - da, : grid.shape[1] - db]
+        b = grid[da:, db:]
+        ok = (a >= 0) & (b >= 0)
+        ia, ib = a[ok], b[ok]
+        smooth = np.abs(u[ia] - u[ib]) <= max_jump
+        edges[key] = (ia[smooth], ib[smooth])
+    ea = np.concatenate([edges["row"][0], edges["col"][0]])
+    eb = np.concatenate([edges["row"][1], edges["col"][1]])
+    adj = coo_matrix((np.ones(len(ea)), (ea, eb)), shape=(n, n))
+    _, labels = connected_components(adj, directed=False)
+    return labels, edges
+
+
 def sheet_components(
     u: np.ndarray, quad_idx: np.ndarray, max_jump: float = SHEET_MAX_JUMP_TURNS
 ) -> np.ndarray:
@@ -98,62 +125,77 @@ def sheet_components(
 
     Two grid-adjacent quads share a sheet when their continuous winding
     coordinates agree to within ``max_jump`` turns; connected components of
-    that relation are sheets as the fit experienced them. A patch spanning
-    many turns stays one component (u varies smoothly along it, across the
-    theta seam included), while a sheet switch cuts the patch at a ~1-turn
-    jump. Components separated by holes but sitting on the same turn (median
-    u within ``max_jump``) are merged, so fragmentation alone is not read as
-    a switch. A fixed-width window over u cannot do this job: it misreads any
-    patch longer than the window as inconsistent (real Paris 4 bands span 12+
-    turns).
-    """
-    from scipy.sparse import coo_matrix
-    from scipy.sparse.csgraph import connected_components
+    that relation are sheets as the fit experienced them. A sheet switch cuts
+    the patch at a ~1-turn jump; the theta seam does not, since u is
+    continuous there.
 
+    Holes split one physical sheet into several components, so components are
+    then merged, but only when the evidence says they belong together: a
+    patch lying on one sheet has a roughly constant u-drift per grid step
+    (each column advances a fixed fraction of a turn), so two components are
+    merged when the u difference at their closest grid-space pair matches
+    what that drift predicts across the gap, to within ``max_jump``. A hole
+    is bridged whatever its size; a switch shows a full-turn residual at zero
+    grid distance and is never bridged.
+
+    Comparing component *medians* instead (parrhesia v0.3) is wrong in both
+    directions and was withdrawn: it splits a long band that merely has a
+    hole, and it chains fragments across many turns. On PHerc. Paris 4 that
+    rated one heavily switched patch 0.986 while 18% of its own grid
+    adjacencies were cut; the drift rule rates it 0.447, and its winning
+    group spans 0.93 turns instead of 4.59.
+    """
     u = np.asarray(u, dtype=np.float64)
     n = len(u)
     if n == 0:
         return np.zeros(0, dtype=np.int64)
-    rows, cols = quad_idx[:, 0], quad_idx[:, 1]
-    grid = np.full((rows.max() + 2, cols.max() + 2), -1, dtype=np.int64)
-    grid[rows, cols] = np.arange(n)
-    edges_a, edges_b = [], []
-    for da, db in ((1, 0), (0, 1)):
-        a = grid[: grid.shape[0] - da, : grid.shape[1] - db]
-        b = grid[da:, db:]
-        ok = (a >= 0) & (b >= 0)
-        ia, ib = a[ok], b[ok]
-        smooth = np.abs(u[ia] - u[ib]) <= max_jump
-        edges_a.append(ia[smooth])
-        edges_b.append(ib[smooth])
-    ea = np.concatenate(edges_a)
-    eb = np.concatenate(edges_b)
-    adj = coo_matrix((np.ones(len(ea)), (ea, eb)), shape=(n, n))
-    _, labels = connected_components(adj, directed=False)
+    labels, edges = _grid_adjacency(u, quad_idx, max_jump)
+    n_comp = int(labels.max()) + 1
+    if n_comp == 1:
+        return labels
 
-    # Merge components that sit on the same turn (median u within max_jump):
-    # islands created by holes are not sheet switches.
-    medians = np.array([np.median(u[labels == c]) for c in range(labels.max() + 1)])
-    order = np.argsort(medians)
-    group = np.empty_like(order)
-    g = 0
-    for k, c in enumerate(order):
-        if k > 0 and medians[c] - medians[order[k - 1]] > max_jump:
-            g += 1
-        group[c] = g
-    return group[labels]
+    from scipy.spatial import cKDTree
+
+    def drift(key: str) -> float:
+        ia, ib = edges[key]
+        return float(np.median(u[ib] - u[ia])) if len(ia) else 0.0
+
+    g_row, g_col = drift("row"), drift("col")
+    rows = quad_idx[:, 0].astype(np.float64)
+    cols = quad_idx[:, 1].astype(np.float64)
+    members = [np.nonzero(labels == c)[0] for c in range(n_comp)]
+    coords = [np.stack([rows[m], cols[m]], axis=-1) for m in members]
+    trees = [cKDTree(c) for c in coords]
+
+    parent = list(range(n_comp))
+
+    def find(x: int) -> int:
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    for a in range(n_comp):
+        for b in range(a + 1, n_comp):
+            if find(a) == find(b):
+                continue
+            dist, idx = trees[b].query(coords[a], k=1)
+            k = int(np.argmin(dist))
+            ia = int(members[a][k])
+            ib = int(members[b][int(np.atleast_1d(idx)[k])])
+            predicted = g_row * (rows[ib] - rows[ia]) + g_col * (cols[ib] - cols[ia])
+            if abs((u[ib] - u[ia]) - predicted) <= max_jump:
+                parent[find(a)] = find(b)
+    groups = np.array([find(c) for c in range(n_comp)])
+    _, compact = np.unique(groups, return_inverse=True)
+    return compact[labels]
 
 
-def sheet_consistency(
-    u: np.ndarray, quad_idx: np.ndarray, max_jump: float = SHEET_MAX_JUMP_TURNS
-) -> float:
-    """Fraction of the patch's points on its largest continuous sheet.
-
-    1.0 for a patch on one continuous sheet, whatever its length in turns
-    (theta-seam crossings included); ~0.5 for a 50/50 sheet switch."""
-    if len(u) < 2:
+def largest_sheet_fraction(labels: np.ndarray) -> float:
+    """Fraction of points on the largest sheet; 1.0 when there is nothing to
+    split (a single point cannot be inconsistent with itself)."""
+    if len(labels) == 0:
         return 1.0
-    labels = sheet_components(u, quad_idx, max_jump=max_jump)
     return float(np.bincount(labels).max() / len(labels))
 
 
@@ -253,14 +295,8 @@ def score_patch(
     result = surface_distance(pts, family_soup.soup)
     assigned = family_soup.face_winding[result.face_idx]
     u = family_soup.face_u[result.face_idx]
-    sheets = (
-        sheet_components(u, quad_idx)
-        if len(u) >= 2
-        else np.zeros(len(u), dtype=np.int64)
-    )
-    sheet_cons = (
-        float(np.bincount(sheets).max() / len(sheets)) if len(sheets) else 1.0
-    )
+    sheets = sheet_components(u, quad_idx)
+    sheet_cons = largest_sheet_fraction(sheets)
 
     windings, counts = np.unique(assigned, return_counts=True)
     modal = int(windings[counts.argmax()])
@@ -336,9 +372,8 @@ def _subset_aggregate(scores: list[PatchScore], tau: float, unseen_min_dist: flo
         # Reuse the full-patch sheet labels on the subset: unseen lobes of one
         # continuous sheet stay one sheet, however far apart the subsampling
         # left them.
-        labels = s.point_sheet[mask]
-        patch_sheet.append(float(np.bincount(labels).max() / len(labels)))
-        patch_weights.append(k)
+        patch_sheet.append(largest_sheet_fraction(s.point_sheet[mask]))
+        patch_weights.append(k)  # weight by unseen points, not by patch size
     if not dists:
         return {
             "unseen_min_dist": unseen_min_dist,
@@ -411,6 +446,7 @@ def score_patches(
         raise ValueError("no patch had a scorable point (check --z-range)")
 
     all_dist = np.concatenate([s.point_dist for s in scores])
+    all_angles = np.concatenate([s.point_normal_angle for s in scores])
     weights = np.array([s.n_points for s in scores], dtype=np.float64)
     with_agreement = [s for s in scores if s.winding_agreement is not None]
     aggregate = {
@@ -434,9 +470,11 @@ def score_patches(
             np.average([s.sheet_consistency for s in scores], weights=weights)
         ),
         "min_sheet_consistency": float(min(s.sheet_consistency for s in scores)),
-        "normal_angle_p90_deg": float(
-            np.average([s.normal_angle_p90_deg for s in scores], weights=weights)
-        ),
+        # Pooled over points, like the distance percentiles above and like the
+        # unseen block: a weighted mean of per-patch p90 is a different
+        # estimator, and mixing the two across a comparison table produced a
+        # spurious "inversion" in parrhesia v0.3.
+        "normal_angle_p90_deg": float(np.percentile(all_angles, 90)),
         "mean_winding_agreement": (
             float(
                 np.average(

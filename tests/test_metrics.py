@@ -208,6 +208,49 @@ def test_aggregates_match_per_point_data(clean_family, heldout_patches):
     assert agg["n_points"] == sum(s.n_points for s in scores)
 
 
+def test_per_patch_fields_match_their_own_point_payload(clean_family):
+    """Every published per-patch number must be recomputable from that
+    patch's own points. Aggregate-level tests cannot catch a percentile
+    published under the wrong name in the per-patch table."""
+    from parrhesia.metrics import largest_sheet_fraction
+
+    patches = {
+        "a": sample_patch(11, PITCH, (0.5, 2.5), (8.0, 52.0), rows=6, cols=18),
+        "b": sample_patch(13, PITCH, (2.0, 3.4), (8.0, 52.0), rows=10, cols=22),
+    }
+    swapped = swap_band(clean_family, 11, 12, theta_band=(1.0, 2.0))
+    scores, agg = score_patches(patches, swapped, tau=0.5)
+    for s in scores:
+        d, ang = s.point_dist, s.point_normal_angle
+        assert s.n_points == len(d)
+        assert s.dist_p50 == float(np.percentile(d, 50))
+        assert s.dist_p90 == float(np.percentile(d, 90))
+        assert s.dist_p99 == float(np.percentile(d, 99))
+        assert s.dist_max == float(d.max())
+        assert s.frac_within_tau == float((d <= 0.5).mean())
+        assert s.normal_angle_p50_deg == float(np.percentile(ang, 50))
+        assert s.normal_angle_p90_deg == float(np.percentile(ang, 90))
+        assert s.sheet_consistency == largest_sheet_fraction(s.point_sheet)
+        vals, counts = np.unique(s.point_winding, return_counts=True)
+        assert s.modal_winding == int(vals[counts.argmax()])
+        assert s.single_winding_consistency == float(counts.max() / len(d))
+    # The published percentiles must actually differ from one another here,
+    # otherwise the assertions above would hold for a mislabelled field too.
+    s0 = scores[0]
+    assert s0.dist_p50 < s0.dist_p90 < s0.dist_p99
+    assert s0.normal_angle_p50_deg < s0.normal_angle_p90_deg
+    # The aggregate's normal angle must be pooled over points, the same
+    # estimator as the distance percentiles and as the unseen block: mixing
+    # estimators across a comparison table invents differences.
+    pooled = np.concatenate([s.point_normal_angle for s in scores])
+    assert agg["normal_angle_p90_deg"] == float(np.percentile(pooled, 90))
+    w = np.array([s.n_points for s in scores], dtype=float)
+    per_patch_mean = float(
+        np.average([float(np.percentile(s.point_normal_angle, 90)) for s in scores], weights=w)
+    )
+    assert abs(agg["normal_angle_p90_deg"] - per_patch_mean) > 1e-6
+
+
 def test_seam_crossing_patch_is_one_sheet(clean_family):
     """A perfect patch crossing the theta seam legitimately spans windings w
     and w+1 (that is what winding indexing means on a spiral), so the raw
@@ -284,6 +327,77 @@ def test_nan_vertices_are_invalid_not_fatal(clean_family):
     s = score_patch(normalized, WindingFamilySoup.from_family(clean_family), patch_id="nan")
     assert s.n_points < patch.quad_centers()[0].shape[0]
     assert np.isfinite(s.point_dist).all()
+
+
+def grid_case(rows, cols, u_fn, drop=None):
+    """A hand-built (u, quad_idx) pair: the sheet metric is a function of the
+    matched winding coordinate and the patch's own grid, so it can be tested
+    directly, without a fit."""
+    ri, ci = np.meshgrid(np.arange(rows), np.arange(cols), indexing="ij")
+    quad_idx = np.stack([ri.ravel(), ci.ravel()], axis=-1)
+    u = u_fn(ri.ravel().astype(float), ci.ravel().astype(float))
+    if drop is not None:
+        keep = ~drop(ri.ravel(), ci.ravel())
+        u, quad_idx = u[keep], quad_idx[keep]
+    return u, quad_idx
+
+
+def test_sheet_components_structure():
+    """The component rule itself: both grid directions must be used, the
+    jump threshold must bite, and the merge must bridge holes without
+    bridging switches. These are the cases that let a broken rewrite pass."""
+    from parrhesia.metrics import largest_sheet_fraction, sheet_components
+
+    # A band drifting along columns, cut in two by a hole: one sheet.
+    u, q = grid_case(6, 90, lambda r, c: 10.0 + 2.0 * c / 90,
+                     drop=lambda r, c: (c > 30) & (c < 60))
+    assert largest_sheet_fraction(sheet_components(u, q)) == 1.0
+
+    # The same band drifting along ROWS instead: still one sheet, which
+    # fails if row adjacency is dropped from the graph.
+    u, q = grid_case(90, 6, lambda r, c: 10.0 + 2.0 * r / 90,
+                     drop=lambda r, c: (r > 30) & (r < 60))
+    assert largest_sheet_fraction(sheet_components(u, q)) == 1.0
+
+    # A compact patch split half and half one turn apart: two sheets. Fails
+    # if column adjacency is dropped (the cut runs along columns).
+    u, q = grid_case(8, 20, lambda r, c: np.where(c < 10, 11.2, 12.2))
+    labels = sheet_components(u, q)
+    assert labels.max() == 1
+    assert abs(largest_sheet_fraction(labels) - 0.5) < 1e-9
+
+    # A switch in the middle of a drifting band: the drift must not excuse
+    # the one-turn step.
+    u, q = grid_case(6, 120, lambda r, c: 10.0 + 1.5 * c / 120 + (c >= 60))
+    assert abs(largest_sheet_fraction(sheet_components(u, q)) - 0.5) < 1e-9
+
+    # Hole first, then a switch: the hole is bridged, the switch is not.
+    u, q = grid_case(6, 120, lambda r, c: 10.0 + 2.0 * c / 120 + (c >= 80),
+                     drop=lambda r, c: (c > 40) & (c < 80))
+    frac = largest_sheet_fraction(sheet_components(u, q))
+    assert 0.45 < frac < 0.55
+
+    # The threshold must bite: a drifting band whose steps exceed max_jump
+    # cannot be one sheet.
+    u, q = grid_case(4, 10, lambda r, c: 10.0 + 0.8 * c)
+    assert largest_sheet_fraction(sheet_components(u, q, max_jump=0.5)) < 0.3
+    assert largest_sheet_fraction(sheet_components(u, q, max_jump=0.9)) == 1.0
+
+
+def test_sheet_components_degenerate_inputs():
+    from parrhesia.metrics import largest_sheet_fraction, sheet_components
+
+    empty = np.zeros(0)
+    assert len(sheet_components(empty, np.zeros((0, 2), dtype=int))) == 0
+    assert largest_sheet_fraction(sheet_components(empty, np.zeros((0, 2), dtype=int))) == 1.0
+    one = sheet_components(np.array([11.3]), np.array([[0, 0]]))
+    assert largest_sheet_fraction(one) == 1.0
+    # Quad indices that do not start at zero must give the same answer.
+    u, q = grid_case(5, 12, lambda r, c: 10.0 + c / 12)
+    shifted = q + np.array([7, 3])
+    assert np.array_equal(
+        np.bincount(sheet_components(u, q)), np.bincount(sheet_components(u, shifted))
+    )
 
 
 def test_sheet_consistency_multi_turn_band(clean_family):
@@ -375,8 +489,8 @@ def test_aggregates_are_point_weighted_and_min_is_min(clean_family):
         assert abs(weighted - float(np.mean(vals))) > 1e-9
         assert agg[f"min_{metric}"] == float(vals.min())
         assert agg[f"min_{metric}"] < agg[f"mean_{metric}"]
-    angle_vals = np.array([by_id[p].normal_angle_p90_deg for p in order])
-    assert agg["normal_angle_p90_deg"] == float(np.average(angle_vals, weights=w))
+    pooled_angles = np.concatenate([by_id[p].point_normal_angle for p in order])
+    assert agg["normal_angle_p90_deg"] == float(np.percentile(pooled_angles, 90))
 
 
 def test_engine_errors_propagate(clean_family, monkeypatch):
@@ -432,6 +546,56 @@ def test_unseen_min_dist_flows_into_selection(clean_family):
     assert agg1["unseen"]["unseen_min_dist"] == 1.0
     assert agg2["unseen"]["n_points"] == 0
     assert agg2["unseen"]["n_patches_excluded"] == 1
+
+
+def test_unseen_aggregate_is_not_a_copy_of_the_main_one(clean_family):
+    """The unseen block is a separate reduction and needs its own controls:
+    weighted by unseen points (not patch size), min really a min, tau really
+    used. All three survived the suite until this test existed."""
+    from parrhesia.metrics import largest_sheet_fraction
+
+    # A big clean patch, mostly seen; a small switched patch, fully unseen.
+    big_clean = sample_patch(13, PITCH, (2.0, 3.4), (8.0, 52.0), rows=12, cols=24)
+    small_bad = sample_patch(11, PITCH, (0.5, 2.5), (8.0, 52.0), rows=4, cols=10)
+    swapped = swap_band(clean_family, 11, 12, theta_band=(1.0, 2.0))
+    # Input covering most of the big patch only.
+    cover = sample_patch(13, PITCH, (2.0, 3.1), (8.0, 52.0), rows=12, cols=30)
+
+    scores, agg = score_patches(
+        {"big": big_clean, "small": small_bad}, swapped,
+        input_family={"i": cover}, unseen_min_dist=2.0, tau=6.0,
+    )
+    by_id = {s.patch_id: s for s in scores}
+    unseen = agg["unseen"]
+    assert unseen["n_patches"] == 2
+
+    # Recompute the expected unseen aggregate independently from the payload.
+    vals, weights, dists = [], [], []
+    for s in scores:
+        mask = s.point_input_dist > 2.0
+        vals.append(largest_sheet_fraction(s.point_sheet[mask]))
+        weights.append(int(mask.sum()))
+        dists.append(s.point_dist[mask])
+    expected_mean = float(np.average(vals, weights=weights))
+    assert unseen["mean_sheet_consistency"] == expected_mean
+    assert unseen["min_sheet_consistency"] == float(min(vals))
+    assert unseen["min_sheet_consistency"] < unseen["mean_sheet_consistency"]
+    # Weighting by unseen points, not by patch size: the two differ here.
+    by_patch_size = float(np.average(vals, weights=[by_id[s.patch_id].n_points for s in scores]))
+    assert abs(expected_mean - by_patch_size) > 1e-6
+
+    # tau must flow into the unseen fraction as well. Pick a tau that really
+    # bites: the median of the unseen distances splits them in half.
+    all_unseen = np.concatenate(dists)
+    assert unseen["frac_within_tau"] == float((all_unseen <= 6.0).mean())
+    tau2 = float(np.median(all_unseen))
+    _, agg2 = score_patches(
+        {"big": big_clean, "small": small_bad}, swapped,
+        input_family={"i": cover}, unseen_min_dist=2.0, tau=tau2,
+    )
+    assert agg2["unseen"]["frac_within_tau"] == float((all_unseen <= tau2).mean())
+    assert 0.4 < agg2["unseen"]["frac_within_tau"] < 0.6
+    assert agg2["unseen"]["frac_within_tau"] != unseen["frac_within_tau"]
 
 
 def test_min_unseen_points_boundary(clean_family):

@@ -47,16 +47,26 @@ Held-out, per patch (then aggregated):
   nearest winding surface (closest-point-on-triangle over the winding's valid quads, KD-tree
   accelerated). Report p50/p90/p99 and fraction within tau (tau default 6 vox, matching the
   satisfaction tolerance for comparability).
-- **sheet consistency** (component-based): a patch is one piece of papyrus, so its points must
-  land on one *continuous sheet*. Winding ids alone cannot express that at the theta seam, where
-  a patch legitimately spans windings w and w+1 (that is what winding indexing means on a
-  spiral), and no fixed-width window over a winding coordinate can either: real Paris 4 bands
-  follow the spiral for 12+ turns and would be misread as inconsistent. So each face carries a
-  continuous winding coordinate `u = winding_id + column / columns` (grid columns follow the
-  spiral and are continuous across seams), grid-adjacent quads whose u agree within half a turn
-  are connected, components separated by holes but sitting on the same turn are merged, and
-  consistency is the fraction of points on the largest resulting sheet. 1.0 for a seam-crossing
-  or many-turn patch on a perfect fit; ~0.5 for a 50/50 sheet switch, wherever it happens.
+- **sheet consistency** (component-based, drift-aware): a patch is one piece of papyrus, so its
+  points must land on one *continuous sheet*. Winding ids alone cannot express that at the theta
+  seam, where a patch legitimately spans windings w and w+1 (that is what winding indexing means
+  on a spiral). So each face carries a continuous winding coordinate
+  `u = winding_id + column / columns` (grid columns follow the spiral and are continuous across
+  seams), grid-adjacent quads whose u agree within half a turn are connected, and consistency is
+  the fraction of points on the largest resulting component. Holes split one physical sheet into
+  several components, so components are merged, but only on evidence: a patch on one sheet has a
+  roughly constant u-drift per grid step, and two components are merged only when the u
+  difference at their closest grid-space pair matches what that drift predicts across the gap. A
+  hole is bridged whatever its size; a switch shows a full-turn residual at zero grid distance
+  and is never bridged. 1.0 for a seam-crossing or many-turn patch on a perfect fit; ~0.5 for a
+  50/50 sheet switch, wherever it happens.
+
+  Two simpler rules were tried and withdrawn, both measurably wrong on real data. A fixed-width
+  window over u misreads any patch longer than the window, and Paris 4 bands run to 26 turns.
+  Merging components whose *median* u are close does the opposite: it chains fragments across
+  many turns. On one real patch that produced 0.986 for a surface whose own grid adjacencies were
+  cut 18% of the time, against 0.399 from the raw modal fraction in the same report. See
+  VALIDATION.md section 6.
 - **single-winding consistency** (raw): fraction of the patch's area assigned to its modal
   winding id. Kept alongside because it is the simplest possible definition, but it has a
   structural floor at the seam; the seam-aware metric above is the headline.
@@ -82,8 +92,10 @@ Run comparison: same report for runs A and B, plus a delta table keyed by metric
 ## Held-out protocol
 
 `parrhesia split`: deterministic, seeded split of a verified-patch directory into `fit/` and
-`heldout/` (default 80/20, stratified by z; a short tail window is folded into its neighbor so
-the z extremes are not over-held-out). Patches are grouped into *families* before splitting
+`heldout/` (default 80/20 of *families*, stratified by z: the z-ordered families are cut into as
+many near-equal blocks as there are families to hold out, and one family per block is drawn.
+Families differ in size, so the patch-level fraction that comes out is close but not equal to the
+requested one; the manifest records both). Patches are grouped into *families* before splitting
 (villa's `*_sel_*` exports, `_region_NNN` crops, `_flatboi`/`_copy`/`_front`/`_back` variants and
 `same_wrapNNNNNN_*` producers are near-duplicate geometry of one parent, suffixes stripped to a
 fixpoint), families sharing a geometry hash are merged (byte-identical twins under unrelated
@@ -172,7 +184,7 @@ the dominant pattern was fixtures pinned at a null point where weighted equals
 unweighted, min equals max, one input equals many, and a passed value equals
 its default. Each survivor now has a test built to discriminate (asymmetric
 sizes, known displacement deltas, reference implementations inside the test),
-and the audit currently stands at 39/39 detected. Two of the new tests were
+and the audit currently stands at 54/54 detected. Two of the new tests were
 themselves first written too symmetrically to discriminate and were caught by
 the audit: the audit polices the tests, including the new ones.
 

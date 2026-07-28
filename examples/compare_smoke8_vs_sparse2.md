@@ -7,14 +7,14 @@
 | heldout_aggregate.dist_p90 | 8.866 | 9.712 | +0.8463 |
 | heldout_aggregate.dist_p99 | 16.79 | 212.2 | +195.4 |
 | heldout_aggregate.frac_within_tau | 0.7287 | 0.6737 | -0.05498 |
-| heldout_aggregate.mean_sheet_consistency | 0.4685 | 0.2652 | -0.2033 |
+| heldout_aggregate.mean_sheet_consistency | 0.4388 | 0.2442 | -0.1946 |
 | heldout_aggregate.mean_single_winding_consistency | 0.427 | 0.2413 | -0.1857 |
 | heldout_aggregate.min_sheet_consistency | 0.06369 | 0.04459 | -0.01911 |
 | heldout_aggregate.min_single_winding_consistency | 0.06369 | 0.04459 | -0.01911 |
 | heldout_aggregate.n_patches | 94 | 94 | +0 |
 | heldout_aggregate.n_patches_skipped | 4 | 4 | +0 |
 | heldout_aggregate.n_points | 4.946e+04 | 4.946e+04 | +0 |
-| heldout_aggregate.normal_angle_p90_deg | 35.03 | 41.81 | +6.782 |
+| heldout_aggregate.normal_angle_p90_deg | 42.94 | 47.6 | +4.658 |
 | heldout_aggregate.tau | 6 | 6 | +0 |
 | intrinsic.collapsed_bin_fraction | 0.002029 | 0.001134 | -0.0008945 |
 | intrinsic.median_pitch | 20.31 | 19.44 | -0.8634 |

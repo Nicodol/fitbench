@@ -91,9 +91,11 @@ MUTATIONS = [
      ('    while True:\n'
       '        before = name\n'
       '        for rx in _FAMILY_CUTS:\n'
-      '            name = rx.sub("", name)\n'
-      '        if name == before or not name:\n'
-      '            return before if not name else name'),
+      '            stripped = rx.sub("", name)\n'
+      '            if stripped:  # never let a cut empty the name\n'
+      '                name = stripped\n'
+      '        if name == before:\n'
+      '            return name'),
      "    return name",
      "disable the family grouping (siblings may straddle the split)"),
     ("split.py",
@@ -164,10 +166,6 @@ MUTATIONS = [
      "            if other != k:\n                merged_key[k] = other",
      "            if other != k:\n                pass",
      "disable the geometry-hash family merge (twins may straddle)"),
-    ("split.py",
-     "        blocks[-2].extend(blocks.pop())",
-     "        pass",
-     "keep the short tail block (z extremes over-held-out)"),
     ("cli.py",
      "        intrinsic = intrinsic_report(family, umbilicus=_load_umbilicus(args.umbilicus))",
      "        intrinsic = intrinsic_report(family, umbilicus=None)",
@@ -180,6 +178,88 @@ MUTATIONS = [
      "                return 5",
      "                return 0",
      "accept unloadable fit inputs without refusing"),
+    # Batch four, answering the 2026-07-29 review of v0.3: the rewritten
+    # sheet metric and the unseen block had almost no mutation coverage, and
+    # both reviewers found surviving counter-mutations there.
+    ("metrics.py",
+     '    for key, (da, db) in (("row", (1, 0)), ("col", (0, 1))):',
+     '    for key, (da, db) in (("col", (0, 1)),):',
+     "drop row adjacency from the sheet graph"),
+    ("metrics.py",
+     '        edges[key] = (ia[smooth], ib[smooth])',
+     ('        edges[key] = (ia[smooth][:0], ib[smooth][:0]) if key == "col" '
+      'else (ia[smooth], ib[smooth])'),
+     "drop column adjacency from the sheet graph"),
+    ("metrics.py",
+     "            if abs((u[ib] - u[ia]) - predicted) <= max_jump:",
+     "            if True:",
+     "merge every pair of sheet components unconditionally"),
+    ("metrics.py",
+     "            if abs((u[ib] - u[ia]) - predicted) <= max_jump:",
+     "            if False:",
+     "never merge sheet components across a hole"),
+    ("metrics.py",
+     "        return float(np.median(u[ib] - u[ia])) if len(ia) else 0.0",
+     "        return 0.0",
+     "ignore the patch's own u-drift when bridging holes"),
+    ("metrics.py",
+     ("        patch_sheet.append(largest_sheet_fraction(s.point_sheet[mask]))\n"
+      "        patch_weights.append(k)  # weight by unseen points, not by patch size"),
+     ("        patch_sheet.append(largest_sheet_fraction(s.point_sheet[mask]))\n"
+      "        patch_weights.append(s.n_points)"),
+     "weight the unseen aggregate by patch size instead of unseen points"),
+    ("metrics.py",
+     '        "min_sheet_consistency": float(min(patch_sheet)),',
+     '        "min_sheet_consistency": float(max(patch_sheet)),',
+     "report the max as the min in the unseen aggregate"),
+    ("metrics.py",
+     ('        "frac_within_tau": float((all_dist <= tau).mean()),\n'
+      '        "mean_sheet_consistency": float(np.average(patch_sheet, weights=weights)),'),
+     ('        "frac_within_tau": float((all_dist <= DEFAULT_TAU).mean()),\n'
+      '        "mean_sheet_consistency": float(np.average(patch_sheet, weights=weights)),'),
+     "ignore tau in the unseen aggregate"),
+    ("metrics.py",
+     ('        "normal_angle_p90_deg": float(np.percentile(all_angles, 90)),\n'
+      '        "mean_winding_agreement": ('),
+     ('        "normal_angle_p90_deg": float(\n'
+      '            np.average([s.normal_angle_p90_deg for s in scores], weights=weights)\n'
+      "        ),\n"
+      '        "mean_winding_agreement": ('),
+     "mix estimators: per-patch mean p90 in the main aggregate, pooled in unseen"),
+    ("metrics.py",
+     "        dist_p99=float(np.percentile(dist, 99)),",
+     "        dist_p99=float(np.percentile(dist, 90)),",
+     "publish p90 as p99 in the per-patch table"),
+    # Deliberately NOT in this list, and why (a mutation the suite cannot
+    # kill would inflate the score without proving anything):
+    #   - removing `other = resolve(other)` in the geometry-hash merge is an
+    #     equivalent mutant in every reachable configuration, because
+    #     `resolve` already follows chains; it only differs by admitting a
+    #     cycle that the surrounding code cannot construct.
+    #   - disabling the split self-check cannot change any output: the hash
+    #     merge makes a poisoned split unreachable by construction, which is
+    #     exactly why the check is a tripwire on that construction and not a
+    #     recoverable branch.
+    ("split.py",
+     "    n_blocks = max(1, round(len(order) * heldout_frac))",
+     "    n_blocks = max(1, round(len(order) * heldout_frac / 2))",
+     "hold out half the requested family fraction"),
+    ("split.py",
+     "            if stripped:  # never let a cut empty the name",
+     "            if True:  # never let a cut empty the name",
+     "let a family key reduce to the empty string"),
+    ("cli.py",
+     '        audit_meta["manifest_n_heldout"] = n_heldout',
+     '        audit_meta["manifest_n_heldout"] = 0',
+     "publish a constant manifest held-out count"),
+    ("cli.py",
+     '            audit_meta["fit_inputs_load_errors"] = len(input_errors)',
+     '            audit_meta["fit_inputs_load_errors"] = 1',
+     "report every batch of unloadable inputs as a single error"),
+    ("report.py",
+     "    if scores is not None:",
+     "    if scores is not None and False:",
+     "stop purging stale overlays"),
 ]
 
 

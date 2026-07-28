@@ -2,6 +2,8 @@
 
 import json
 
+import pytest
+
 from parrhesia.cli import main
 from parrhesia.io_tifxyz import save_tifxyz
 from parrhesia.metrics import score_patches
@@ -250,6 +252,79 @@ def test_cli_refuses_unloadable_fit_inputs(tmp_path):
     assert rc == 0
     rep = json.loads((tmp_path / "rep" / "report.json").read_text())
     assert rep["meta"]["fit_inputs_load_errors"] == 1
+
+
+def test_cli_counts_every_unloadable_input(tmp_path):
+    """Two broken inputs must be reported as two, not as one: 'one equals
+    many' fixtures are how this class of bug survives."""
+    family = make_family(num_windings=6, first_winding=10, pitch=PITCH, z_count=16)
+    run, src, _ = make_all(tmp_path, family)
+    rc = main(["split", "--src", str(src), "--out", str(tmp_path / "split"), "--frac", "0.34"])
+    assert rc == 0
+    fit_dir = tmp_path / "split" / "fit"
+    victims = [d for d in sorted(fit_dir.iterdir()) if d.is_dir()][:2]
+    assert len(victims) == 2
+    for v in victims:
+        (v / "z.tif").write_bytes(b"not a tiff")
+    args = [
+        "score", "--meshes", str(run), "--patches", str(tmp_path / "split" / "heldout"),
+        "--out", str(tmp_path / "rep"), "--variant", "plain", "--overlays", "0",
+        "--fit-inputs", str(fit_dir), "--allow-input-load-errors",
+    ]
+    assert main(args) == 0
+    rep = json.loads((tmp_path / "rep" / "report.json").read_text())
+    assert rep["meta"]["fit_inputs_load_errors"] == 2
+
+
+def test_cli_records_the_real_manifest_counts(tmp_path):
+    """The report's audit counts are what a reader uses to tell a legitimate
+    z-window restriction from a cherry-pick, so they must be the real ones."""
+    family = make_family(num_windings=6, first_winding=10, pitch=PITCH, z_count=16)
+    run, src, _ = make_all(tmp_path, family)
+    assert main(["split", "--src", str(src), "--out", str(tmp_path / "split"),
+                 "--frac", "0.34"]) == 0
+    manifest_path = tmp_path / "split" / "split_manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    out = tmp_path / "rep"
+    assert main([
+        "score", "--meshes", str(run), "--patches", str(tmp_path / "split" / "heldout"),
+        "--out", str(out), "--variant", "plain", "--overlays", "0",
+        "--manifest", str(manifest_path),
+    ]) == 0
+    meta = json.loads((out / "report.json").read_text())["meta"]
+    assert meta["manifest_n_heldout"] == manifest["n_heldout"] >= 2
+    assert meta["patches_dir_listed_in_manifest"] == manifest["n_heldout"]
+
+
+def test_cli_rejects_a_patches_path_that_is_not_a_directory(tmp_path):
+    family = make_family(num_windings=6, first_winding=10, pitch=PITCH, z_count=16)
+    run, src, _ = make_all(tmp_path, family)
+    rc = main(["split", "--src", str(src), "--out", str(tmp_path / "split"), "--frac", "0.34"])
+    assert rc == 0
+    with pytest.raises(SystemExit):
+        main([
+            "score", "--meshes", str(run), "--patches", str(tmp_path / "nope"),
+            "--out", str(tmp_path / "rep2"), "--variant", "plain", "--overlays", "0",
+            "--manifest", str(tmp_path / "split" / "split_manifest.json"),
+        ])
+
+
+def test_stale_overlays_are_purged_even_without_new_ones(tmp_path):
+    """A rescoring of a different window with --overlays 0 must not leave the
+    previous window's images beside a report that describes another one."""
+    family = make_family(num_windings=6, first_winding=10, pitch=PITCH, z_count=16)
+    run, src, _ = make_all(tmp_path, family)
+    out = tmp_path / "rep"
+    assert main([
+        "score", "--meshes", str(run), "--patches", str(src), "--out", str(out),
+        "--variant", "plain", "--overlays", "2",
+    ]) == 0
+    assert list(out.glob("overlay_z*.png"))
+    assert main([
+        "score", "--meshes", str(run), "--patches", str(src), "--out", str(out),
+        "--variant", "plain", "--overlays", "0",
+    ]) == 0
+    assert not list(out.glob("overlay_z*.png"))
 
 
 def test_intrinsic_command(tmp_path):

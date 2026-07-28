@@ -118,10 +118,21 @@ def write_report(
                 "",
             ]
         if unseen is not None and unseen.get("n_points", 0) == 0:
+            # Two different reasons produce an empty aggregate; saying the
+            # wrong one here would be a false statement in the section that
+            # carries the honesty claim.
+            excluded = unseen.get("n_patches_excluded", 0)
             none_left = (
-                f"**0 points** survive the leakage filter (every scored point "
-                f"lies within {unseen.get('unseen_min_dist', 0):g} vox of a fit "
-                "input): there is no unseen evidence to score."
+                f"**No patch qualifies.** {excluded} patch(es) had fewer than "
+                f"the minimum number of points beyond "
+                f"{unseen.get('unseen_min_dist', 0):g} vox of a fit input, so "
+                "no unseen aggregate is reported. Individual patches may still "
+                "hold a few unseen points; see the leakage profile above and "
+                "the per-patch table below."
+                if excluded
+                else "**0 points** lie beyond "
+                f"{unseen.get('unseen_min_dist', 0):g} vox of a fit input: "
+                "every scored point was available to the fit."
             )
             lines += ["## Unseen evidence only", "", none_left, ""]
         if unseen is not None and unseen.get("n_points", 0) > 0:
@@ -183,13 +194,16 @@ def write_report(
                       _md_table(rows, ["kind", "gap", "inner wind", "z", "theta"]), ""]
     (out_dir / "report.md").write_text("\n".join(lines), encoding="utf-8")
 
-    if family and scores and overlay_slices > 0:
-        # Remove overlays from a previous run of a different z span, so a
-        # reused --out directory never mixes overlays of two runs. Only when
-        # about to write new ones: an intrinsic-only rerun into a score's
-        # --out must not wipe the score's overlays.
+    if scores is not None:
+        # Remove overlays from a previous scoring of a different z span, so a
+        # reused --out directory never mixes overlays of two runs. Keyed on
+        # "this is a scoring report" rather than "we are about to draw": an
+        # intrinsic-only rerun must not wipe a score's overlays, and a score
+        # with --overlays 0 must not leave the previous window's overlays
+        # next to a report that describes a different one.
         for stale in out_dir.glob("overlay_z*.png"):
             stale.unlink()
+    if family and scores and overlay_slices > 0:
         all_z = np.concatenate([s.point_zyx[:, 0] for s in scores])
         z_lo, z_hi = float(all_z.min()), float(all_z.max())
         dz = max((z_hi - z_lo) / max(overlay_slices, 1), 1.0)

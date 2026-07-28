@@ -154,15 +154,59 @@ def test_byte_identical_twins_never_straddle(tmp_path):
         ) == []
 
 
-def test_short_tail_block_is_merged(tmp_path):
-    """17 families at frac 0.25: without merging, the tail block of one
-    family would be held out at every seed; merged, the split holds out 4."""
+def test_block_count_hits_the_requested_family_fraction(tmp_path):
+    """Equal blocks must hit the requested fraction of FAMILIES at any corpus
+    size. Fixed-width blocks leave a tail that is either always held out (size
+    one) or, once folded into its neighbour, silently lowers the fraction."""
+    for n, frac in ((17, 0.25), (6, 0.2), (7, 0.2), (9, 0.2), (19, 0.2), (20, 0.5)):
+        src = save_patch_set(
+            tmp_path / f"src{n}_{frac}",
+            {f"q{i:02d}": (11 + (i % 4), 0.3 + 0.3 * i) for i in range(n)},
+        )
+        manifest = split_patches(src, tmp_path / f"sp{n}_{frac}", heldout_frac=frac, seed=3)
+        assert manifest["n_families"] == n
+        assert manifest["n_heldout"] == max(1, round(n * frac)), (n, frac)
+        assert abs(manifest["heldout_family_frac"] - frac) <= 1.0 / n
+
+
+def test_family_key_never_reduces_to_nothing():
+    """A name made only of suffixes must keep an identity of its own, or all
+    such patches would collapse into one bogus family."""
+    for name in ("_flatboi", "_region_1", "_flatboi_region_1", "_region_1_flatboi",
+                 "_copy", "_sel_x"):
+        assert family_key(name) != ""
+
+
+def test_geometry_twins_merge_transitively(tmp_path):
+    """Three name-unrelated directories chained by shared geometry (A==B,
+    B==C) must all land on the same side: a merge that does not resolve to
+    the current root leaves C behind."""
+    import shutil
+
     src = save_patch_set(
         tmp_path / "src",
-        {f"q{i:02d}": (11 + (i % 4), 0.3 + 0.3 * i) for i in range(17)},
+        {"aaa": (11, 0.4), "mmm": (12, 1.2), "zzz": (13, 2.0), "qqq": (14, 3.0)},
     )
-    manifest = split_patches(src, tmp_path / "split", heldout_frac=0.25, seed=3)
-    assert manifest["n_heldout"] == 4
+    shutil.copytree(src / "aaa", src / "bbb")  # twin of aaa
+    shutil.copytree(src / "aaa", src / "ccc")  # twin of bbb, hence of aaa
+    for seed in (1, 2, 3, 4):
+        manifest = split_patches(src, tmp_path / f"s{seed}", heldout_frac=0.5, seed=seed)
+        sides = {manifest["assignments"][n] for n in ("aaa", "bbb", "ccc")}
+        assert len(sides) == 1, f"twin chain straddles at seed {seed}"
+        assert audit_fit_inputs(
+            tmp_path / f"s{seed}" / "split_manifest.json", tmp_path / f"s{seed}" / "fit"
+        ) == []
+
+
+def test_audit_scored_patches_rejects_a_bad_path(tmp_path):
+    src = save_patch_set(tmp_path / "src", {"a": (11, 0.4), "b": (12, 1.0), "c": (13, 2.0)})
+    split_patches(src, tmp_path / "split", heldout_frac=0.34, seed=2)
+    manifest_path = tmp_path / "split" / "split_manifest.json"
+    with pytest.raises((NotADirectoryError, FileNotFoundError)):
+        audit_scored_patches(manifest_path, tmp_path / "does_not_exist")
+    (tmp_path / "a_file").write_text("not a directory")
+    with pytest.raises((NotADirectoryError, FileNotFoundError)):
+        audit_scored_patches(manifest_path, tmp_path / "a_file")
 
 
 def test_heldout_frac_majority_is_rejected(tmp_path):

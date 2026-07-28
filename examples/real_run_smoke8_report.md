@@ -1,6 +1,6 @@
 # parrhesia report
 
-- parrhesia: 0.1.0.dev0
+- parrhesia: 0.3.0
 - meshes: G:\projets\vesuvius\runs\smoke8\2026-07-28_s1_slice-10600-10900_389-patch_smoke8\meshes\fitted_smoke8
 - patches: G:\projets\vesuvius\windows\z10600_10900\heldout_strict
 - variant: spliced
@@ -11,7 +11,7 @@
 - manifest: G:\projets\vesuvius\parrhesia\examples\PHercParis4_v1_split_manifest.json
 - fit_inputs: G:\projets\vesuvius\windows\z10600_10900\verified_fit
 - unseen_min_dist: 2.0
-- scored_patches_listed_heldout: 98
+- patches_dir_listed_in_manifest: 98
 - manifest_n_heldout: 985
 - fit_inputs_hash_audit: clean
 
@@ -22,7 +22,7 @@
 | points | 49458 |
 | dist p50 / p90 / p99 (vox) | 3.832 / 8.866 / 16.790 |
 | within tau = 6.0 | 72.9% |
-| sheet consistency (mean / min) | 0.468 / 0.064 |
+| sheet consistency (mean / min) | 0.439 / 0.064 |
 | single-winding consistency (mean / min) | 0.427 / 0.064 |
 | winding agreement | None |
 
@@ -44,7 +44,7 @@
 | points | 15437 |
 | dist p50 / p90 / p99 (vox) | 4.206 / 9.578 / 17.735 |
 | within tau | 67.6% |
-| sheet consistency (mean / min) | 0.444 / 0.052 |
+| sheet consistency (mean / min) | 0.396 / 0.052 |
 | normal angle p90 (deg) | 49.9 |
 
 ## Per patch (worst first)
@@ -100,7 +100,7 @@
 | same_wrap001894_lasagna | 1344 | 2.64 | 15.04 | 92% | 32 | 0.37 |
 | auto_grown_20260526143735233_sel_20260526_154138_154 | 813 | 4.43 | 15.01 | 68% | 63 | 0.35 |
 | auto_grown_20260526112529933_sel_20260526_113228_31 | 250 | 2.36 | 15.00 | 94% | 12 | 0.85 |
-| 4424_david_masked | 2724 | 3.30 | 14.81 | 83% | 33 | 0.99 |
+| 4424_david_masked | 2724 | 3.30 | 14.81 | 83% | 33 | 0.45 |
 | same_wrap001879_lasagna | 97 | 4.68 | 14.55 | 64% | 20 | 0.55 |
 | auto_grown_20260521130313666_sel_20260521_130413_2 | 255 | 4.66 | 14.40 | 64% | 45 | 0.49 |
 | auto_grown_20260526123645345_sel_20260526_124600_24 | 490 | 4.69 | 14.32 | 62% | 44 | 0.16 |

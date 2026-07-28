@@ -22,8 +22,8 @@ be compared metric by metric.
 ## What it does
 
 - **Held-out accuracy**: surface-distance percentiles and fraction within tau, sheet consistency
-  (seam-aware, via a continuous winding coordinate) plus the raw single-winding fraction,
-  winding-number agreement, and normal agreement, per held-out patch and aggregated.
+  (seam-aware and drift-aware, via a continuous winding coordinate) plus the raw single-winding
+  fraction, winding-number agreement, and normal agreement, per held-out patch and aggregated.
 - **Evidence-leakage audit**: given the fit's actual input patches, parrhesia measures how much of
   the "held-out" evidence lies within touching distance of an input surface (overlapping patch
   selections make name-level splits leaky) and re-scores the genuinely unseen evidence separately.
@@ -54,20 +54,23 @@ resulting numbers (planted-defect matrix, mutation audit, real-data controls).
 
 ## Status
 
-v0.3 (July 2026): exact point-to-mesh distance (verified against brute force
+v0.4 (July 2026): exact point-to-mesh distance (verified against brute force
 over every triangle and against an independent dense-sampling reference),
 held-out metrics and intrinsic checks validated against planted defects on a
 synthetic scroll (null controls silent, every defect class detected by the
-intended metric), split/score/intrinsic/compare CLI covered by end-to-end
-tests, loader validated on 500/500 real PHerc. Paris 4 verified patches, and a
-demonstration on two real `fit_spiral` runs (see VALIDATION.md, section 6).
-Two external-style review rounds (adversarial code review, claims audit
-against artifacts, upstream check, test-quality audit with its own
-counter-mutations) shaped v0.2 and v0.3: the evidence-leakage audit, the
-component-based sheet consistency (robust to patches spanning many turns),
-the family-grouped split with geometry-hash twin merging, and a test suite
-hardened until 39/39 injected bugs are detected. VALIDATION.md records what
-each round caught, including in our own numbers.
+intended metric), measured sensitivity floors, split/score/intrinsic/compare
+CLI covered by end-to-end tests, loader validated on 500/500 real PHerc.
+Paris 4 verified patches, and a demonstration on two real `fit_spiral` runs
+(see VALIDATION.md, section 6).
+
+Three external-style review rounds (adversarial code review, claims audit
+against artifacts, upstream check, test-quality audit writing its own
+counter-mutations) shaped v0.2 to v0.4: the evidence-leakage audit, the
+drift-aware sheet consistency, the family-grouped split with geometry-hash
+twin merging, and a test suite hardened until 54/54 injected bugs are
+detected. Each round attacked the previous round's fixes and found more;
+VALIDATION.md records what each caught, including the times it was our own
+published numbers that were wrong.
 
 ## Acknowledgments
 

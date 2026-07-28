@@ -50,12 +50,21 @@ _FAMILY_CUTS = (
 
 
 def family_key(name: str) -> str:
+    """Strip derived-export suffixes until the name stops changing.
+
+    A name made only of suffixes would reduce to the empty string, which
+    would put every such patch in one bogus family; those keep the last
+    non-empty form instead. Real corpora contain no such name (checked on
+    all 4,922 PHerc. Paris 4 patches), so this is a guard, not a policy.
+    """
     while True:
         before = name
         for rx in _FAMILY_CUTS:
-            name = rx.sub("", name)
-        if name == before or not name:
-            return before if not name else name
+            stripped = rx.sub("", name)
+            if stripped:  # never let a cut empty the name
+                name = stripped
+        if name == before:
+            return name
 
 
 def _hash_files(patch_dir: Path, names: tuple[str, ...]) -> str:
@@ -142,17 +151,33 @@ def split_patches(
     fam_z = {k: float(np.mean([z_centers[i] for i in families[k]])) for k in fam_keys}
 
     order = sorted(range(len(fam_keys)), key=lambda i: (fam_z[fam_keys[i]], fam_keys[i]))
-    window = max(2, round(1.0 / heldout_frac))
+    # Cut the z-ordered families into as many near-equal blocks as there are
+    # families to hold out, and draw one family per block. Fixed-width blocks
+    # leave a short tail whose single family is held out at every seed and
+    # whose z extreme is over-represented; equal blocks hit the requested
+    # family fraction by construction, at every corpus size.
+    n_blocks = max(1, round(len(order) * heldout_frac))
+    bounds = np.linspace(0, len(order), n_blocks + 1).round().astype(int)
+    blocks = [order[bounds[i] : bounds[i + 1]] for i in range(n_blocks)]
     rng = np.random.default_rng(seed)
-    blocks = [order[start : start + window] for start in range(0, len(order), window)]
-    if len(blocks) > 1 and len(blocks[-1]) < window:
-        # A short tail block would over-hold-out the z extremes (a block of
-        # size 1 is held out at every seed); fold it into the previous block.
-        blocks[-2].extend(blocks.pop())
     heldout_idx: set[int] = set()
     for block in blocks:
         picked = fam_keys[block[int(rng.integers(0, len(block)))]]
         heldout_idx.update(families[picked])
+
+    # Self-check BEFORE anything is written: the guarantee the manifest sells
+    # is that no held-out geometry exists on the fit side. The hash merge
+    # above makes this unreachable by construction, which is the point: it is
+    # a tripwire on that construction, not a recoverable case. Running it
+    # first means a failure leaves no split on disk at all.
+    heldout_geo = {geometry_hashes[d.name] for i, d in enumerate(patch_dirs) if i in heldout_idx}
+    fit_geo = {geometry_hashes[d.name] for i, d in enumerate(patch_dirs) if i not in heldout_idx}
+    poisoned = heldout_geo & fit_geo
+    if poisoned:
+        raise RuntimeError(
+            f"split self-check failed: {len(poisoned)} geometry hash(es) present "
+            "on both sides; family grouping missed a duplicate"
+        )
 
     assignments, family_of = {}, {}
     for side in ("fit", "heldout"):
@@ -168,22 +193,13 @@ def split_patches(
             shutil.rmtree(dest)
         shutil.copytree(d, dest)
 
-    # Self-check: the guarantee the manifest sells is that no held-out
-    # geometry exists on the fit side. With the merge above this cannot
-    # happen; fail loudly rather than write a poisoned split if it ever does.
-    heldout_geo = {geometry_hashes[d.name] for i, d in enumerate(patch_dirs) if i in heldout_idx}
-    fit_geo = {geometry_hashes[d.name] for i, d in enumerate(patch_dirs) if i not in heldout_idx}
-    poisoned = heldout_geo & fit_geo
-    if poisoned:
-        raise RuntimeError(
-            f"split self-check failed: {len(poisoned)} geometry hash(es) present "
-            "on both sides; family grouping missed a duplicate"
-        )
-
     manifest = {
         "source": str(src_dir),
         "seed": seed,
+        # heldout_frac is a target on FAMILIES; families differ in size, so
+        # the patch-level fraction that comes out is close but not equal.
         "heldout_frac": heldout_frac,
+        "heldout_family_frac": len(blocks) / len(fam_keys),
         "grouping": "family",
         "n_patches": len(patch_dirs),
         "n_families": len(fam_keys),
@@ -252,7 +268,10 @@ def audit_scored_patches(
     heldout = _heldout_hash_index(manifest)
     use_geometry = "geometry_sha256" in manifest
     unlisted, listed = [], 0
-    for d in sorted(Path(patches_dir).iterdir()):
+    root = Path(patches_dir)
+    if not root.is_dir():
+        raise NotADirectoryError(f"--patches is not a directory: {root}")
+    for d in sorted(root.iterdir()):
         if not d.is_dir() or not (d / "meta.json").exists():
             continue
         h = patch_geometry_hash(d) if use_geometry else patch_content_hash(d)

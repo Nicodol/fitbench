@@ -65,7 +65,7 @@ QuadSurfaces with `winding_column_ranges`); producer-agnostic by design.
   and reported as collapsed, not as a false crossing; a planted leaked patch
   is caught by the leakage profile. Null controls are bounded by computed
   chordal-discretization limits, not magic numbers.
-- The tests are themselves audited by mutation (39 injected bugs, all
+- The tests are themselves audited by mutation (54 injected bugs, all
   detected, a CI job on three OSes), and the whole package went through two
   independent-style review rounds (adversarial code review, claims audit
   against artifacts, upstream check, test-quality audit with its own
@@ -90,22 +90,26 @@ to it through overlapping input selections):
 
 - *Dense run* (fit-side patches): the two instruments agree. Satisfaction
   5/389 patches (1.3%); parrhesia median distance 4.21 vox, 67.6% within
-  tau = 6, mean sheet consistency 0.44. A deliberately cheap fit
+  tau = 6, mean sheet consistency 0.40. A deliberately cheap fit
   (1,500 steps, 8 GB VRAM), judged weak by both.
 - *Sparse run* (no patches, the minimal-input regime #1237 declares a valid
   use-case): patch satisfaction is an **empty denominator (0/0)**, and the
   held-out median distance and within-tau are practically indistinguishable
   from the dense run (4.47 vox, 67.4%), so a distance-only check would also
   see nothing. What the held-out suite exposes and localizes: sheet identity
-  degrades (mean consistency 0.44 -> 0.27, the surface passes near papyrus
+  degrades (mean consistency 0.40 -> 0.24, the surface passes near papyrus
   but on the wrong windings) and catastrophic tails appear (p99 17.7 -> 212
   vox, max 23.9 -> 330 vox: parts of the window are simply not modeled).
+  Resampling the held-out patches puts that consistency gap at 0.195, 95%
+  interval [0.114, 0.266].
 
 Reports, the leakage profile, and the delta table (`parrhesia compare`) ship
-in `examples/`; VALIDATION.md section 6 also documents, openly, the two
-corrections our own review round forced on the first version of this very
-table (a fiber input left enabled in the first sparse companion; leaked
-evidence flattering the dense run's normals).
+in `examples/`; VALIDATION.md section 6 also documents, openly, every
+correction our own review rounds forced on earlier versions of this very
+table: a fiber input left enabled in the first sparse companion, dense
+numbers computed on evidence the fit had seen, a normal-agreement row that
+compared two different estimators, and a sheet-consistency rule whose entire
+published gain came from one mis-rated patch.
 
 **Links**
 
