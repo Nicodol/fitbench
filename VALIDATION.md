@@ -18,6 +18,18 @@ per-mesh bound, so a nearer triangle can never be missed.
 - Degenerate inputs are tested analytically: needle, collinear, and
   point-collapsed triangles, plus a thin-but-valid triangle that fails if the
   epsilon guard is widened (`test_degenerate_and_needle_triangles`).
+- **Where "exact" stops being true, measured.** An adversarial review of this
+  version built an independent reference (minimum over the three closed edges
+  plus the in-plane projection) and found one family the primitive gets wrong:
+  a face whose *first two* vertices coincide (`a == b`). Reproduced here on
+  20,000 random cases per family: generic, `a == c` and `b == c` faces agree to
+  1e-15, while `a == b` over-estimates on 47.9% of queries and exactly collinear
+  faces on 1.9%. The error is one-sided, always an over-estimate, so it can only
+  make a fit look worse. It does not touch any number in this document: across
+  everything scored here, 7,513,224 faces (both demo runs' surfaces, the 98
+  held-out patches, the 541 fit inputs), there are **zero** faces with any
+  duplicated vertex pair and zero exactly collinear faces. A quad mesh does not
+  produce them unless a grid cell is pinched. Worth fixing, not fixed here.
 - Adversarial case included: a large triangle whose surface is nearest but
   whose centroid is far, hidden behind a decoy cluster of small triangles.
   This is the test that fails if the exactness bound is weakened
@@ -153,9 +165,9 @@ asked.
   `overlap()`, the latter on a random sample of points), and one of them also
   lists the segment an expansion grew from with no geometric test at all
   (`vc_grow_seg_from_seed.cpp`). Measured on the same 150 pairs: 23 of the 29
-  pairs whose median exceeds 5 vox do touch, at a minimum distance of 0.00 vox
-  with 17% to 49% of their points within 2 vox, and diverge elsewhere, so their
-  per-pair median describes a mixed population. Per-pair medians reach 1,998
+  pairs whose median exceeds 5 vox do touch, at a minimum distance of 0.00 vox,
+  with 1.5% to 49% of their points within 2 vox (median 22%), and diverge
+  elsewhere, so their per-pair median describes a mixed population. Per-pair medians reach 1,998
   vox at the extreme. An earlier version of this line explained the tail by
   neighbouring windings instead; villa's 2 voxel tolerance rules that out, since
   it cannot pair surfaces a winding pitch apart. See DESIGN.md.
@@ -183,11 +195,12 @@ rescore against the real fitted surfaces.
 
 Moving every held-out point by **two full winding pitches, 41 voxels**, moves
 the median distance by 0.23 vox and the within-tau fraction by 2.2 points:
-nothing. The winding the evidence is matched to moves by exactly two. A
-random-direction probe confirms the mechanism directly: displacing points by
-2, 4, 8 or 16 vox in arbitrary directions leaves the median distance to the
-nearest surface between 5.99 and 6.11 vox. The distance saturates at the
-geometry's own resolution.
+nothing. The winding the evidence is matched to moves by exactly two. Every
+number in that table comes out of `scripts/pitch_blindness.py` on the demo run.
+(An earlier version of this section also quoted a random-direction probe. The
+shipped script only displaces radially, so that claim had no artifact behind it
+and is withdrawn rather than restated; the radial control is the one with a
+known answer, and it is the one that makes the point.)
 
 Scope of this result, stated carefully, because it is easy to overstate.
 It says that a **distance-only** evaluation cannot judge a scroll fit,
@@ -258,10 +271,10 @@ instead would compare two different point sets and flatter whichever run saw
 more; the sparse run saw none.) 15,457 points clear the 2 vox threshold in
 total; the aggregate uses 15,437 of them, because 25 patches contribute fewer
 than the eight unseen points required to enter a per-patch average. The report
-prints both counts.
+prints the aggregate's count and the used/excluded patch split (`69 / 25`); the
+15,457 is the sum of the per-patch `n_points_unseen` fields, which the report
+carries per patch rather than as a total.
 
-| measure | dense run | sparse run (no patches) |
-|---|---|---|
 | measure | dense run | sparse run (no patches) |
 |---|---|---|
 | villa satisfaction, patches | 5/389 satisfied (1.3%) | **0/0 (empty denominator)** |
@@ -331,7 +344,9 @@ One more thing this pair says, and it is not flattering to half of this suite.
 The intrinsic checks, which consume no ground truth, rank the two runs the
 other way round: the sparse fit shows 10 radial-monotonicity violations against
 the dense fit's 48, 2 inflated inter-winding gaps against 67, and a slightly
-higher valid-vertex fraction on every winding (all four numbers are in
+higher valid-vertex fraction on every winding the two runs have in common (the
+sparse run emits 106 windings against the dense run's 120, so 14 have no
+counterpart; all four numbers are in
 [`examples/compare_smoke8_vs_sparse2.md`](examples/compare_smoke8_vs_sparse2.md)).
 That is not a contradiction, it is the limit of a check with no external
 reference: a surface family can be smooth, regular and self-consistent while
@@ -355,6 +370,19 @@ numbers move by 0.05 to 0.26 vox. The sparse run has nothing to splice, so its
 two variants are bit-identical. The unseen aggregate is immune because it
 already excludes every point within 2 vox of an input, which is exactly where
 the splice lives.
+
+*Sheet consistency has a known upward bias here.* An adversarial review of this
+version found that the drift-aware merge bridges a genuine full-turn switch when
+a patch has a wide hole and an uneven drift, because the rule predicts u across
+the gap from a single drift estimate: the error grows with the hole width, and
+past half a turn the switch is indistinguishable from a gap. On the demo patches
+that arithmetic allows up to about 1.2 turns of uncertainty against a 0.5-turn
+tolerance. The bias is one-sided and inflates the score. Both the working case
+and the failing one are now pinned in `tests/test_sheet_contract.py` (the latter
+as a strict `xfail`), and DESIGN.md states the limit. It is left unfixed on
+purpose: this metric has been rewritten three times, the contract exists so that
+the next change argues against a table instead of against the previous code, and
+the number it produces here is one the bootstrap already declines to call.
 
 *What satisfaction could and could not say.* Patch satisfaction had an empty
 denominator on the sparse run. Its unattached-pcl channel did not: it reported
@@ -410,7 +438,7 @@ The villa satisfaction rows are verbatim log excerpts:
 
 ```bash
 uv sync --group dev
-uv run pytest -q                      # 98 tests: engine, defect matrix, e2e CLI
+uv run pytest -q                      # 101 tests + 1 strict xfail (a frozen known limit)
 uv run python scripts/mutation_check.py   # 53/53 injected bugs must be detected
 uv run python scripts/real_data_smoke.py <verified_patches_dir> 500
 uv run python scripts/real_overlap_check.py <verified_patches_dir> 150

@@ -121,6 +121,20 @@ Held-out, per patch (then aggregated):
   and is never bridged. 1.0 for a seam-crossing or many-turn patch on a perfect fit; ~0.5 for a
   50/50 sheet switch, wherever it happens.
 
+  **Known limit, measured and frozen rather than fixed.** The rule estimates *one* drift per
+  grid direction, the median over surviving edges. When a patch's drift is not homogeneous, the
+  predicted u across a hole is wrong by (drift error) x (hole width), so past 0.5 turns of
+  prediction error a full-turn switch stops being distinguishable from an ordinary gap and gets
+  bridged. Concretely, with a flat left half and a 0.006 turns/column right half, the switch is
+  correctly seen at a 150-column hole and silently bridged from 167 columns on; with a single
+  homogeneous drift it is seen at any width. On the real demo patches the same arithmetic gives
+  up to about 1.2 turns of prediction uncertainty against a 0.5-turn tolerance, so this is not a
+  synthetic-only concern. Both cases are pinned in `tests/test_sheet_contract.py`, the failing
+  one as a strict `xfail` so that a future fix reports itself. The error is one-sided: it
+  inflates the score, never deflates it. Treat sheet consistency as a lower-bound-flavoured
+  indicator on patches with large holes and uneven drift, and note that on the demo pair this
+  metric is also the one the bootstrap declines to call (VALIDATION.md section 6).
+
   Two simpler rules were tried and withdrawn, both measurably wrong on real data. A fixed-width
   window over u misreads any patch longer than the window, and Paris 4 bands run to 26 turns.
   Merging components whose *median* u are close does the opposite: it chains fragments across
@@ -132,7 +146,11 @@ Held-out, per patch (then aggregated):
   a structural floor at the theta seam, where a correct fit necessarily splits a patch across two
   winding ids.
 - **winding-number agreement**: when `winding.tif` is present, difference between relative winding
-  deltas in the patch annotation and deltas of assigned winding ids.
+  deltas in the patch annotation and deltas of assigned winding ids. **Never exercised on real
+  data**: 0 of the 4,922 Paris 4 verified patches carry a `winding.tif`, so every real report
+  prints `winding agreement: None`. It is validated on synthetic fixtures only, and it saturates
+  at 1.0 for any patch whose annotation stays inside the modal winding, whatever that annotation
+  contains. Do not read a 1.0 here as evidence until a corpus with real winding grids exists.
 - **normal agreement**: angle between patch quad normals and the matched surface normals
   (p50/p90), sign-agnostic.
 - **fraction within tau** doubles as coverage: the share of a patch's scored quad centers with a
@@ -206,8 +224,12 @@ Two consequences are accepted deliberately:
   the consumed side is directly optimized and therefore gameable. Deliberately scoring the fit
   side stays possible behind `--allow-unlisted-patches`, as a diagnostic. The v0 correction in
   VALIDATION.md section 6 is an involuntary demonstration of the gap's size on a real run:
-  normal agreement p90 of 35.0 deg on the naive sealed set (54.8% of it effectively seen)
-  against 49.9 deg on unseen evidence.
+  normal agreement p90 of 42.9 deg on the naive sealed set (54.8% of it effectively seen)
+  against 49.9 deg on unseen evidence, both pooled over points. (An earlier version of this
+  line quoted 35.0 deg on the left, which is the point-weighted mean of per-patch p90 and not
+  the pooled percentile on the right. That is the same estimator mismatch VALIDATION.md
+  section 6 records as a correction, so it is worth saying that it survived here until an
+  independent claims audit caught it.)
 
 ## Validation plan (before any claim)
 
@@ -290,9 +312,9 @@ the audit: the audit polices the tests, including the new ones.
   voxel test cannot pair surfaces a winding pitch apart, so the earlier working
   hypothesis (radially adjacent patches on neighbouring windings) is ruled out
   by villa's own code. Measured on the same 150 pairs: of the 29 whose median
-  exceeds 5 vox, 23 do touch, at a minimum distance of 0.00 vox and with 17% to
-  49% of their points within 2 vox, then diverge elsewhere, so their per-pair
-  median describes a mixed population rather than a displacement. Per-pair
+  exceeds 5 vox, 23 do touch, at a minimum distance of 0.00 vox and with 1.5% to
+  49% of their points within 2 vox (median 22%), then diverge elsewhere, so their
+  per-pair median describes a mixed population rather than a displacement. Per-pair
   medians run to 1,998 vox at the extreme, which no same-sheet reading explains
   and which the pair-level "touches somewhere" rule does.
 

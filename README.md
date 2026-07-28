@@ -58,7 +58,8 @@ Evaluation exists to make iteration safe. Concretely:
 - **Quality gate**: score one run and read the localized alerts (winding, z, theta) before
   spending GPU-hours of ink detection on its surfaces.
 
-Scoring is cheap (CPU minutes, against GPU hours for a fit) and post hoc (existing run folders,
+Scoring is cheap (75 CPU-seconds for the demo run, against 6 to 16 GPU-minutes for the cheap
+demo fits themselves, and far longer for a production fit) and post hoc (existing run folders,
 nothing re-run), and the seeded split keeps the sealed exam identical across runs, so numbers
 stay comparable over time.
 

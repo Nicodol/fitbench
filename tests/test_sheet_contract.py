@@ -121,6 +121,45 @@ def test_sheet_consistency_contract(name, build, want, tol, why):
     assert abs(got - want) <= tol, f"{name}: got {got:.3f}, contract says {want} ({why})"
 
 
+def _hole_then_switch(gap, g_left, g_right, left_n=150, right_n=150, rows=6):
+    right0 = left_n + gap
+    n = right0 + right_n
+    ri, ci = np.meshgrid(np.arange(rows), np.arange(n), indexing="ij")
+    quad_idx = np.stack([ri.ravel(), ci.ravel()], axis=-1)
+    c = ci.ravel().astype(float)
+    u = np.where(c < left_n, 10.0 + g_left * c, 10.0 + TURN + g_right * (c - right0))
+    keep = ~((c >= left_n) & (c < right0))
+    return u[keep], quad_idx[keep]
+
+
+def test_wide_hole_with_uniform_drift_still_sees_the_switch():
+    """The contract case 'hole, then a switch after it' at larger scale, with the
+    drift the merge rule actually assumes: one drift for the whole patch. This is
+    the regime the rule is built for, and it must hold at any hole width."""
+    for gap in (150, 200, 300, 400):
+        u, quad_idx = _hole_then_switch(gap, 0.006, 0.006)
+        got = largest_sheet_fraction(sheet_components(u, quad_idx))
+        assert abs(got - 0.5) <= 0.06, f"gap {gap}: got {got:.3f}, contract says 0.5"
+
+
+@pytest.mark.xfail(strict=True, reason=(
+    "Known limit, measured 2026-07-29 and deliberately not fixed here. The merge "
+    "estimates ONE drift per grid direction (the median over surviving edges) and "
+    "bridges a hole when the u difference matches that drift across the gap. When a "
+    "patch's drift is not homogeneous, the prediction error grows linearly with the "
+    "hole width, so past drift_error * gap >= 0.5 turns a full-turn switch is "
+    "indistinguishable from an ordinary gap. Here the switch is bridged from gap "
+    "167 on. On the demo patches the same arithmetic gives up to ~1.2 turns of "
+    "prediction uncertainty against a 0.5-turn decision tolerance, which is one "
+    "reason the demo's sheet-consistency gap does not clear its bootstrap interval. "
+    "Any fix must argue against this table first, and must keep the uniform-drift "
+    "case above."))
+def test_wide_hole_with_heterogeneous_drift_hides_the_switch():
+    u, quad_idx = _hole_then_switch(200, 0.0, 0.006)
+    got = largest_sheet_fraction(sheet_components(u, quad_idx))
+    assert abs(got - 0.5) <= 0.06, f"got {got:.3f}, contract says 0.5"
+
+
 def test_contract_is_discriminating():
     """A contract every implementation passes is not a contract. Two rules
     that were shipped and withdrawn must each fail at least one case above,

@@ -231,6 +231,27 @@ def test_cli_unseen_min_dist_is_plumbed(tmp_path):
     assert rep["meta"]["unseen_min_dist"] == 0.75
 
 
+@pytest.mark.parametrize("bad", ["0", "-1"])
+def test_cli_refuses_non_positive_unseen_min_dist(tmp_path, bad):
+    """A non-positive threshold makes every scored point 'unseen', including
+    points sitting on a fit input. That would not fail loudly, it would publish
+    a leakage-free-looking report, so it has to be refused."""
+    family = make_family(num_windings=6, first_winding=10, pitch=PITCH, z_count=16)
+    run, src, _ = make_all(tmp_path, family)
+    assert main(["split", "--src", str(src), "--out", str(tmp_path / "split"),
+                 "--frac", "0.34"]) == 0
+    args = [
+        "score", "--meshes", str(run), "--patches", str(tmp_path / "split" / "heldout"),
+        "--out", str(tmp_path / "rep"), "--variant", "plain", "--overlays", "0",
+        "--fit-inputs", str(tmp_path / "split" / "fit"),
+        "--unseen-min-dist", bad,
+    ]
+    with pytest.raises(SystemExit):
+        main(args)
+    # and the positive case still works, so the guard is not just always-raise
+    assert main(args[:-1] + ["0.75"]) == 0
+
+
 def test_cli_refuses_unloadable_fit_inputs(tmp_path):
     """A fit-input patch that cannot be loaded silently weakens the leakage
     guarantee in the flattering direction: hard refusal unless overridden."""

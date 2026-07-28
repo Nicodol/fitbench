@@ -50,6 +50,13 @@ def cmd_score(args) -> int:
 
     if args.tau <= 0:
         raise SystemExit(f"--tau must be positive, got {args.tau}")
+    # A non-positive threshold would let every scored point count as unseen,
+    # which silently turns the report's central guarantee into a tautology.
+    if args.unseen_min_dist <= 0:
+        raise SystemExit(
+            f"--unseen-min-dist must be positive, got {args.unseen_min_dist}: "
+            "a non-positive threshold would report seen evidence as unseen"
+        )
 
     audit_meta: dict = {}
     if args.manifest:

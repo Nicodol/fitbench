@@ -141,9 +141,13 @@ patch selections that no name- or hash-level split can see.
   call the two runs comparable. The distribution says otherwise: p90 goes
   from 9.6 to 53.9 vox and p99 from 17.7 to **246 vox**, twelve winding
   pitches, which is what an unmodelled region looks like in numbers.
-  Resampling the patches (`scripts/bootstrap_ci.py`) confirms the distance
-  gaps clear zero and reports honestly that the sheet-consistency and
-  within-tau gaps, though pointing the same way, do not.
+  Resampling the patches (`scripts/bootstrap_ci.py`, 20,000 paired draws over
+  the 78 patches carrying unseen points) confirms the distance gaps clear zero
+  and reports honestly that the sheet-consistency and within-tau gaps, though
+  pointing the same way, do not. That table aggregates as a point-weighted mean
+  of per-patch values, so its numbers are not the pooled percentiles above and
+  are not meant to restate them: it answers whether a gap is stable under
+  resampling, not how large the pooled gap is.
 
 Reports, the leakage profile, and the delta table (`parrhesia compare`) ship
 in `examples/`; VALIDATION.md section 6 also documents, openly, every
