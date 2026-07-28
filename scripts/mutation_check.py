@@ -43,7 +43,7 @@ MUTATIONS = [
 def run_pytest() -> int:
     proc = subprocess.run(
         [sys.executable, "-m", "pytest", "-q", "-x", "-p", "no:cacheprovider"],
-        cwd=ROOT, capture_output=True, text=True,
+        cwd=ROOT, capture_output=True, text=True, check=False,  # non-zero is the signal here
     )
     return proc.returncode
 

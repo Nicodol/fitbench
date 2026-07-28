@@ -104,10 +104,24 @@ def score_patch(
     family_soup: WindingFamilySoup,
     tau: float = DEFAULT_TAU,
     patch_id: str = "",
+    z_range: tuple[float, float] | None = None,
 ) -> PatchScore:
+    """Score one held-out patch against a run's winding family.
+
+    ``z_range`` restricts scoring to quad centers inside the fitted z window:
+    a run only claims to model its own window, so points outside it must not
+    count against it. Patches with no point left inside are skipped upstream.
+    """
     centers, quad_idx = patch.quad_centers()
     if len(centers) == 0:
         raise ValueError(f"patch {patch_id or patch.path}: no valid quad")
+    if z_range is not None:
+        inside = (centers[:, 0] >= z_range[0]) & (centers[:, 0] <= z_range[1])
+        if not inside.any():
+            raise ValueError(
+                f"patch {patch_id or patch.path}: no quad center inside z {z_range}"
+            )
+        centers, quad_idx = centers[inside], quad_idx[inside]
     pts = centers.astype(np.float64)
 
     result = surface_distance(pts, family_soup.soup)
@@ -163,19 +177,31 @@ def score_patches(
     patches: dict[str, QuadSurface],
     family: dict[int, QuadSurface],
     tau: float = DEFAULT_TAU,
+    z_range: tuple[float, float] | None = None,
 ) -> tuple[list[PatchScore], dict]:
     """Score every held-out patch; return per-patch scores and aggregates.
 
     Aggregates are point-weighted so large patches count proportionally.
+    Patches left with no point inside ``z_range`` are skipped (reported in the
+    aggregate as ``n_patches_skipped``).
     """
     family_soup = WindingFamilySoup.from_family(family)
-    scores = [score_patch(p, family_soup, tau=tau, patch_id=pid) for pid, p in patches.items()]
+    scores, skipped = [], []
+    for pid, patch in patches.items():
+        try:
+            scores.append(score_patch(patch, family_soup, tau=tau, patch_id=pid, z_range=z_range))
+        except ValueError:
+            skipped.append(pid)
+    if not scores:
+        raise ValueError("no patch had a scorable point (check --z-range)")
 
     all_dist = np.concatenate([s.point_dist for s in scores])
     weights = np.array([s.n_points for s in scores], dtype=np.float64)
     agreements = [s.winding_agreement for s in scores if s.winding_agreement is not None]
     aggregate = {
         "n_patches": len(scores),
+        "n_patches_skipped": len(skipped),
+        "z_range": list(z_range) if z_range else None,
         "n_points": int(weights.sum()),
         "tau": tau,
         "dist_p50": float(np.percentile(all_dist, 50)),

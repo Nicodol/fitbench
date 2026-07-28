@@ -68,6 +68,33 @@ def test_null_control(clean_family, heldout_patches):
     assert agg["normal_angle_p90_deg"] < 8.0
 
 
+def test_z_range_restricts_scoring(clean_family):
+    """A fit only models its own z window: points outside must not be scored."""
+    patch = sample_patch(11, PITCH, (0.4, 1.6), (8.0, 52.0), rows=12)
+    full = score_patch(patch, WindingFamilySoup.from_family(clean_family), patch_id="p")
+    windowed = score_patch(
+        patch, WindingFamilySoup.from_family(clean_family), patch_id="p", z_range=(20.0, 40.0)
+    )
+    assert windowed.n_points < full.n_points
+    assert (windowed.point_zyx[:, 0] >= 20.0).all() and (windowed.point_zyx[:, 0] <= 40.0).all()
+
+    # A patch entirely outside the window raises rather than scoring nothing.
+    with pytest.raises(ValueError):
+        score_patch(
+            patch, WindingFamilySoup.from_family(clean_family), patch_id="p",
+            z_range=(500.0, 600.0),
+        )
+
+
+def test_score_patches_skips_out_of_window(clean_family):
+    near = sample_patch(11, PITCH, (0.4, 1.6), (8.0, 52.0))
+    far = sample_patch(12, PITCH, (2.0, 3.0), (400.0, 460.0))
+    scores, agg = score_patches({"near": near, "far": far}, clean_family, z_range=(8.0, 52.0))
+    assert [s.patch_id for s in scores] == ["near"]
+    assert agg["n_patches"] == 1 and agg["n_patches_skipped"] == 1
+    assert agg["z_range"] == [8.0, 52.0]
+
+
 def test_determinism(clean_family, heldout_patches):
     _, agg1 = score_patches(heldout_patches, clean_family)
     _, agg2 = score_patches(heldout_patches, clean_family)

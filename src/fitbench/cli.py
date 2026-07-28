@@ -52,7 +52,13 @@ def cmd_score(args) -> int:
 
     family = load_run_windings(Path(args.meshes), variant=args.variant)
     patches = _load_patches_dir(Path(args.patches))
-    scores, aggregate = score_patches(patches, family, tau=args.tau)
+    z_range = None
+    if args.z_range:
+        parts = [float(v) for v in args.z_range.split(",")]
+        if len(parts) != 2 or parts[0] >= parts[1]:
+            raise SystemExit(f"--z-range expects 'z_min,z_max', got {args.z_range!r}")
+        z_range = (parts[0], parts[1])
+    scores, aggregate = score_patches(patches, family, tau=args.tau, z_range=z_range)
     intrinsic = None
     if not args.no_intrinsic and len(family) >= 2:
         intrinsic = intrinsic_report(family, umbilicus=_load_umbilicus(args.umbilicus))
@@ -116,6 +122,10 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--tau", type=float, default=6.0, help="distance tolerance in voxels")
     p.add_argument("--variant", default="spliced", choices=["spliced", "plain", "any"])
     p.add_argument("--umbilicus", default=None, help="'y,x' constant or json polyline [z,y,x]")
+    p.add_argument(
+        "--z-range", default=None,
+        help="'z_min,z_max' of the fitted window: patch points outside it are not scored",
+    )
     p.add_argument("--manifest", default=None, help="split_manifest.json to audit against")
     p.add_argument("--fit-inputs", default=None, help="fit input patches dir to audit")
     p.add_argument("--overlays", type=int, default=2, help="number of overlay PNG slices")
