@@ -69,23 +69,26 @@ resulting numbers (planted-defect matrix, mutation audit, real-data controls).
 
 ## Status
 
-v0.4 (July 2026): exact point-to-mesh distance (verified against brute force
-over every triangle and against an independent dense-sampling reference),
-held-out metrics and intrinsic checks validated against planted defects on a
-synthetic scroll (null controls silent, every defect class detected by the
-intended metric), measured sensitivity floors, split/score/intrinsic/compare
-CLI covered by end-to-end tests, loader validated on 500/500 real PHerc.
-Paris 4 verified patches, and a demonstration on two real `fit_spiral` runs
-(see VALIDATION.md, section 6).
+v0.4 (July 2026): point-to-mesh distance verified against brute force over every
+triangle and against an independent dense-sampling reference, held-out metrics
+and intrinsic checks validated against planted defects on a synthetic scroll
+(null controls silent, every defect class detected by the intended metric),
+measured sensitivity floors, split/score/intrinsic/compare CLI covered by
+end-to-end tests, loader validated on 500/500 real PHerc. Paris 4 verified
+patches, and a demonstration on two real `fit_spiral` runs (see VALIDATION.md,
+section 6).
 
-Three external-style review rounds (adversarial code review, claims audit
-against artifacts, upstream check, test-quality audit writing its own
-counter-mutations) shaped v0.2 to v0.4: the evidence-leakage audit, the
-drift-aware sheet consistency, the family-grouped split with geometry-hash
-twin merging, and a test suite hardened until 53/53 injected bugs are
-detected. Each round attacked the previous round's fixes and found more;
-VALIDATION.md records what each caught, including the times it was our own
-published numbers that were wrong.
+Four external-style review rounds (adversarial code review, claims audit against
+artifacts, upstream check, test-quality audit writing its own counter-mutations)
+shaped v0.2 onwards: the evidence-leakage audit, the drift-aware sheet
+consistency, the family-grouped split with geometry-hash twin merging, and a
+regression harness kept at 53/53 injected bugs detected. Each round attacked the
+previous round's fixes and found more; the fourth corrected the premise of this
+very README, named the villa prior art it had failed to cite, and left one
+measured defect frozen in the sheet-consistency contract rather than patched.
+VALIDATION.md records what each round caught, including the times it was our own
+published numbers that were wrong, and section 3 says plainly what 53/53 does
+and does not mean.
 
 ## Acknowledgments
 
