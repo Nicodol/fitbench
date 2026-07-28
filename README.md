@@ -14,6 +14,14 @@ optimizer satisfy its constraints", not "is this surface geometrically right", a
 errors in regions where no constraint was given. A fit with no patches at all has nothing to
 dissatisfy.
 
+There is a second, structural reason a single number cannot do this job. A winding family fills
+space at the pitch, so every point inside the modelled region sits within half a pitch of some
+sheet: a surface placed one full winding out of place is still close to something. Measured on
+real data, displacing the held-out evidence by two full pitches (41 voxels) moves the median
+distance by 0.23 vox, while the winding it is matched to moves by exactly two
+(`scripts/pitch_blindness.py`). Distance and winding identity are complementary by construction,
+not by preference.
+
 `parrhesia` evaluates a fit *from its output meshes alone*, against **held-out verified patches**
 that the fit never saw, plus intrinsic topology checks that need no ground truth at all. It is
 producer-agnostic: any directory of `tifxyz` winding surfaces whose winding ids are readable from

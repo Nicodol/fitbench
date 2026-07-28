@@ -80,7 +80,20 @@ QuadSurfaces with `winding_column_ranges`); producer-agnostic by design.
   with a residual tail near one winding pitch consistent with radially
   adjacent listings.
 
-**Demonstration on two real fits (the blind spot, measured)**
+**The blind spot, measured on real data**
+
+A winding family fills space at the pitch, so every point inside the modelled
+region is within half a pitch of some sheet. Any measure that reduces to "how
+far is the evidence from the nearest surface" is therefore blind to a surface
+that is one full winding out of place, which is the characteristic failure of
+scroll fitting. `scripts/pitch_blindness.py` shows it with a known answer on
+the real pipeline: displacing the held-out evidence by **two full winding
+pitches (41 voxels)** moves the median distance by 0.23 vox and within-tau by
+2.2 points, while the winding it is matched to moves by exactly two. That is
+why the suite reports winding identity next to distance, and computes it from
+the surfaces rather than through the fit's own transform.
+
+**Demonstration on two real fits**
 
 Two real `fit_spiral` runs on PHerc. Paris 4 (z 10600-10900, consumer GPU,
 identical settings and step budget), differing in one input switch

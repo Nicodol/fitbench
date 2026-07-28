@@ -123,6 +123,41 @@ asked.
   resolution), consistent with `overlapping.json` also listing radially
   adjacent patches; see DESIGN.md.
 
+## 4b. The blind spot a distance metric cannot cover, measured on real data
+
+A winding family fills space at the pitch: inside the modelled region every
+point is within half a pitch of *some* sheet. A surface that is one full
+winding out of place is therefore still close to something, and any measure
+that reduces to "how far is the evidence from the nearest surface" cannot see
+it. That is not a corner case; it is the characteristic failure of scroll
+fitting.
+
+`scripts/pitch_blindness.py` turns that into a control with a known answer,
+on the real pipeline: displace the held-out evidence radially around the true
+umbilicus by a measured multiple of the run's own pitch (20.31 vox here) and
+rescore against the real fitted surfaces.
+
+| displacement | dist p50 | dist p99 | within tau | matched winding |
+|---|---|---|---|---|
+| none | 3.83 vox | 16.79 vox | 72.9% | reference |
+| half a pitch (10.2 vox) | 4.01 | 16.91 | 71.1% | +0.0 |
+| one pitch (20.3 vox) | 3.93 | 17.01 | 72.2% | **+1.0** |
+| two pitches (40.6 vox) | 4.06 | 17.12 | 70.7% | **+2.0** |
+
+Moving every held-out point by **two full winding pitches, 41 voxels**, moves
+the median distance by 0.23 vox and the within-tau fraction by 2.2 points:
+nothing. The winding the evidence is matched to moves by exactly two. A
+random-direction probe confirms the mechanism directly: displacing points by
+2, 4, 8 or 16 vox in arbitrary directions leaves the median distance to the
+nearest surface between 5.99 and 6.11 vox. The distance saturates at the
+geometry's own resolution.
+
+This is why the suite reports winding identity alongside distance, and why it
+computes it from the surfaces themselves rather than through the fit's
+transform. It is also the honest limit of the distance columns everywhere
+else in this document: they detect regions the fit did not model at all
+(large distances) and sub-pitch misplacement, and nothing in between.
+
 ## 5. Leakage control: hash audit plus geometric measurement
 
 `parrhesia split` groups patches into families first (overlapping `*_sel_*`
