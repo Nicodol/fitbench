@@ -150,7 +150,7 @@ construction.
 | parrhesia surface distance p50 | 4.21 vox | 4.47 vox |
 | within tau = 6 vox | 67.6% | 67.4% |
 | parrhesia surface distance p99 / max | 17.7 / 23.9 vox | **212.2 / 330.0 vox** |
-| sheet consistency (mean, seam-aware) | 0.40 | **0.24** |
+| sheet consistency (mean, component-based) | 0.44 | **0.27** |
 | normal agreement p90 | 49.9 deg | 41.8 deg |
 
 Reading. Both runs are deliberately cheap (1,500 steps, coarse flow field,
@@ -161,7 +161,7 @@ as won't-fix for exactly that reason), and there patch satisfaction is an
 empty denominator while the held-out **median** distance and within-tau are
 practically indistinguishable from the dense run: a distance-only check
 would also see nothing. What actually separates them is sheet identity
-(consistency 0.40 vs 0.24: the sparse surface passes near papyrus but far
+(consistency 0.44 vs 0.27: the sparse surface passes near papyrus but far
 more often on the wrong winding) and catastrophic tails (p99 at 212 vox: ten
 winding pitches; parts of the window are simply not modeled), which only the
 held-out, multi-metric view exposes and localizes.

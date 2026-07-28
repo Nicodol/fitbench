@@ -7,7 +7,7 @@
 | heldout_aggregate.dist_p90 | 8.866 | 9.712 | +0.8463 |
 | heldout_aggregate.dist_p99 | 16.79 | 212.2 | +195.4 |
 | heldout_aggregate.frac_within_tau | 0.7287 | 0.6737 | -0.05498 |
-| heldout_aggregate.mean_sheet_consistency | 0.4415 | 0.2445 | -0.197 |
+| heldout_aggregate.mean_sheet_consistency | 0.4685 | 0.2652 | -0.2033 |
 | heldout_aggregate.mean_single_winding_consistency | 0.427 | 0.2413 | -0.1857 |
 | heldout_aggregate.min_sheet_consistency | 0.06369 | 0.04459 | -0.01911 |
 | heldout_aggregate.min_single_winding_consistency | 0.06369 | 0.04459 | -0.01911 |

@@ -8,10 +8,11 @@
 - tau: 6.0
 - z_range: 10600,10900
 - umbilicus: G:\projets\vesuvius\spiral-dataset\PHercParis4\umbilicus.json
-- manifest: G:\projets\vesuvius\fitbench\examples\PHercParis4_v1_split_manifest.json
+- manifest: G:\projets\vesuvius\parrhesia\examples\PHercParis4_v1_split_manifest.json
 - fit_inputs: None
 - unseen_min_dist: None
 - scored_patches_listed_heldout: 98
+- manifest_n_heldout: 985
 
 ## Held-out aggregate
 
@@ -20,7 +21,7 @@
 | points | 49458 |
 | dist p50 / p90 / p99 (vox) | 4.474 / 9.712 / 212.163 |
 | within tau = 6.0 | 67.4% |
-| sheet consistency (mean / min) | 0.245 / 0.045 |
+| sheet consistency (mean / min) | 0.265 / 0.045 |
 | single-winding consistency (mean / min) | 0.241 / 0.045 |
 | winding agreement | None |
 
@@ -34,7 +35,7 @@
 | auto_grown_20260416100730699 | 714 | 133.30 | 172.32 | 0% | 115 | 1.00 |
 | auto_grown_20260421140742657_sel_20260524_234618_4 | 45 | 11.89 | 73.28 | 29% | 115 | 0.96 |
 | auto_grown_20260421054221178_region_000 | 1044 | 4.66 | 70.52 | 63% | 115 | 0.29 |
-| auto_grown_20260526112529933_sel_20260526_113228_31 | 250 | 39.55 | 50.87 | 0% | 10 | 0.80 |
+| auto_grown_20260526112529933_sel_20260526_113228_31 | 250 | 39.55 | 50.87 | 0% | 10 | 0.74 |
 | auto_grown_20260526104703844_flatboi_sel_20260526_113725_15 | 535 | 6.53 | 49.17 | 47% | 10 | 0.40 |
 | auto_grown_20260521224733336_sel_20260521_225007_21 | 135 | 29.67 | 37.27 | 0% | 115 | 1.00 |
 | fill_0007_sel_20260512_111459_33 | 233 | 4.57 | 20.74 | 72% | 36 | 0.20 |
@@ -64,7 +65,7 @@
 | same_wrap002028_lasagna | 1180 | 4.38 | 14.74 | 69% | 83 | 0.13 |
 | auto_grown_20260521225553961_sel_20260521_225725_11 | 471 | 3.77 | 14.73 | 78% | 64 | 0.04 |
 | auto_grown_20260526143735233_sel_20260526_154138_115 | 971 | 4.24 | 14.71 | 68% | 35 | 0.35 |
-| 4424_david_masked | 2724 | 4.20 | 14.58 | 71% | 20 | 0.11 |
+| 4424_david_masked | 2724 | 4.20 | 14.58 | 71% | 20 | 0.49 |
 | same_wrap002962_lasagna | 2111 | 4.16 | 13.89 | 71% | 72 | 0.26 |
 | auto_grown_20260521131254493_sel_20260521_131346_1 | 915 | 3.79 | 13.81 | 78% | 36 | 0.10 |
 | auto_grown_20260521161559989_sel_20260521_162020_14 | 810 | 3.47 | 13.54 | 80% | 76 | 0.07 |

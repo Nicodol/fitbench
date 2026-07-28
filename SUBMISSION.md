@@ -90,14 +90,14 @@ to it through overlapping input selections):
 
 - *Dense run* (fit-side patches): the two instruments agree. Satisfaction
   5/389 patches (1.3%); parrhesia median distance 4.21 vox, 67.6% within
-  tau = 6, mean sheet consistency 0.40. A deliberately cheap fit
+  tau = 6, mean sheet consistency 0.44. A deliberately cheap fit
   (1,500 steps, 8 GB VRAM), judged weak by both.
 - *Sparse run* (no patches, the minimal-input regime #1237 declares a valid
   use-case): patch satisfaction is an **empty denominator (0/0)**, and the
   held-out median distance and within-tau are practically indistinguishable
   from the dense run (4.47 vox, 67.4%), so a distance-only check would also
   see nothing. What the held-out suite exposes and localizes: sheet identity
-  degrades (mean consistency 0.40 -> 0.24, the surface passes near papyrus
+  degrades (mean consistency 0.44 -> 0.27, the surface passes near papyrus
   but on the wrong windings) and catastrophic tails appear (p99 17.7 -> 212
   vox, max 23.9 -> 330 vox: parts of the window are simply not modeled).
 

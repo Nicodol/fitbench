@@ -8,10 +8,11 @@
 - tau: 6.0
 - z_range: 10600,10900
 - umbilicus: G:\projets\vesuvius\spiral-dataset\PHercParis4\umbilicus.json
-- manifest: G:\projets\vesuvius\fitbench\examples\PHercParis4_v1_split_manifest.json
+- manifest: G:\projets\vesuvius\parrhesia\examples\PHercParis4_v1_split_manifest.json
 - fit_inputs: G:\projets\vesuvius\windows\z10600_10900\verified_fit
 - unseen_min_dist: 2.0
 - scored_patches_listed_heldout: 98
+- manifest_n_heldout: 985
 - fit_inputs_hash_audit: clean
 
 ## Held-out aggregate
@@ -21,7 +22,7 @@
 | points | 49458 |
 | dist p50 / p90 / p99 (vox) | 3.832 / 8.866 / 16.790 |
 | within tau = 6.0 | 72.9% |
-| sheet consistency (mean / min) | 0.442 / 0.064 |
+| sheet consistency (mean / min) | 0.468 / 0.064 |
 | single-winding consistency (mean / min) | 0.427 / 0.064 |
 | winding agreement | None |
 
@@ -43,7 +44,7 @@
 | points | 15437 |
 | dist p50 / p90 / p99 (vox) | 4.206 / 9.578 / 17.735 |
 | within tau | 67.6% |
-| sheet consistency (mean / min) | 0.401 / 0.052 |
+| sheet consistency (mean / min) | 0.444 / 0.052 |
 | normal angle p90 (deg) | 49.9 |
 
 ## Per patch (worst first)
@@ -59,7 +60,7 @@
 | auto_grown_20260526130029927_sel_20260526_130618_42 | 330 | 4.42 | 19.53 | 72% | 44 | 0.79 |
 | fill_0008_sel_20260512_104623_7 | 340 | 6.40 | 19.53 | 44% | 61 | 0.31 |
 | auto_grown_20260521190621512_sel_20260521_190859_18 | 130 | 6.93 | 19.48 | 42% | 89 | 0.13 |
-| fill_0007_sel_20260512_111459_33 | 233 | 2.71 | 19.27 | 67% | 48 | 0.52 |
+| fill_0007_sel_20260512_111459_33 | 233 | 2.71 | 19.27 | 67% | 48 | 0.47 |
 | auto_grown_20260526195309752_sel_20260526_210343_44 | 112 | 4.80 | 19.04 | 64% | 93 | 0.20 |
 | auto_grown_20260421165403705_sel_20260604_081020_2 | 1192 | 4.99 | 18.86 | 60% | 124 | 0.24 |
 | same_wrap001105_lasagna | 1054 | 5.78 | 18.84 | 52% | 33 | 0.50 |
@@ -82,7 +83,7 @@
 | auto_grown_20260525085134735_sel_20260525_085936_61 | 360 | 3.55 | 16.62 | 75% | 43 | 0.55 |
 | auto_grown_20260524195627415_sel_20260524_200047_30 | 480 | 5.01 | 16.58 | 59% | 86 | 0.41 |
 | same_wrap002962_lasagna | 2111 | 4.07 | 16.29 | 76% | 63 | 0.44 |
-| 1000_fill_sel_20260512_105755_24 | 289 | 3.98 | 16.26 | 68% | 40 | 0.46 |
+| 1000_fill_sel_20260512_105755_24 | 289 | 3.98 | 16.26 | 68% | 40 | 0.45 |
 | same_wrap002462_lasagna | 761 | 4.24 | 16.25 | 74% | 31 | 0.45 |
 | auto_grown_20260614185053940 | 552 | 2.28 | 16.20 | 82% | 36 | 0.81 |
 | auto_grown_20260526200530340_sel_20260526_211217_54 | 410 | 4.22 | 16.09 | 77% | 76 | 0.36 |
@@ -99,7 +100,7 @@
 | same_wrap001894_lasagna | 1344 | 2.64 | 15.04 | 92% | 32 | 0.37 |
 | auto_grown_20260526143735233_sel_20260526_154138_154 | 813 | 4.43 | 15.01 | 68% | 63 | 0.35 |
 | auto_grown_20260526112529933_sel_20260526_113228_31 | 250 | 2.36 | 15.00 | 94% | 12 | 0.85 |
-| 4424_david_masked | 2724 | 3.30 | 14.81 | 83% | 33 | 0.49 |
+| 4424_david_masked | 2724 | 3.30 | 14.81 | 83% | 33 | 0.99 |
 | same_wrap001879_lasagna | 97 | 4.68 | 14.55 | 64% | 20 | 0.55 |
 | auto_grown_20260521130313666_sel_20260521_130413_2 | 255 | 4.66 | 14.40 | 64% | 45 | 0.49 |
 | auto_grown_20260526123645345_sel_20260526_124600_24 | 490 | 4.69 | 14.32 | 62% | 44 | 0.16 |
