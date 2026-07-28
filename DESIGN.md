@@ -10,8 +10,11 @@ position, mapped through the **fitted** scan-to-spiral transform, lies within 0.
 (spiral space) AND 6 voxels (scan space) of a snapped target winding. Three properties limit this
 as an evaluation:
 
-1. **Inputs only.** Only constraints given to the fit are scored. Regions without constraints are
-   invisible, and a fit run with zero patches has nothing to fail against (see villa issue #1237).
+1. **Inputs only.** Only constraints given to the fit are scored, so the measure degenerates
+   exactly where evidence is sparse. This is not a corner case: fitting with minimal verified
+   inputs is an explicitly supported goal (villa #1237, closed as won't-fix: "runs with no patches
+   are a valid use-case... we want to be able to fit a spiral with minimal verified inputs"). The
+   leaner the inputs, the less satisfaction can say, and the more a held-out measure is needed.
 2. **Measured through the fit itself.** Both the transform and `dr_per_winding` come from the model
    being evaluated. A systematically wrong deformation can move the goalposts with the surface.
 3. **Not post-hoc.** It needs the fit checkpoint, torch, and the input bundle; it cannot score a
