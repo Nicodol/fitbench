@@ -29,7 +29,8 @@ be compared metric by metric.
 - Reports as JSON plus PNG overlays. CPU-only, no torch, no GPU, no checkpoint needed.
 
 See [DESIGN.md](DESIGN.md) for the metric definitions, the held-out split protocol, and the
-planted-defect validation plan.
+planted-defect validation plan, and [VALIDATION.md](VALIDATION.md) for what was tested and the
+resulting numbers (planted-defect matrix, mutation audit, real-data controls).
 
 ## Status
 
@@ -39,6 +40,10 @@ defects on a synthetic scroll (null controls silent, every defect class
 detected by the intended metric), split/score/intrinsic/compare CLI covered by
 end-to-end tests, loader validated on 500/500 real PHerc. Paris 4 verified
 patches. Pending before first release: a demonstration on a real fit run.
+
+## Authorship
+
+Directed, reviewed and maintained by Nicodol; built with heavy AI assistance.
 
 ## Acknowledgments
 

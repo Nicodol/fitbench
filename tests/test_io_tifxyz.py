@@ -114,3 +114,21 @@ def test_load_run_windings_prefers_spliced(tmp_path):
 
     with pytest.raises(FileNotFoundError):
         load_run_windings(tmp_path / "empty_dir_missing")
+
+
+def test_load_run_windings_with_run_tag(tmp_path):
+    """villa appends FIT_SPIRAL_RUN_TAG to mesh directory names."""
+    meshes = tmp_path / "meshes" / "fitted_myrun"
+    write_tifxyz(meshes / "w010_myrun", grid(z0=1.0))
+    write_tifxyz(meshes / "w010_spliced_myrun", grid(z0=2.0))
+    write_tifxyz(meshes / "w011_myrun", grid(z0=3.0))
+    write_tifxyz(meshes / "w011_spliced_myrun", grid(z0=4.0))
+
+    spliced = load_run_windings(meshes, variant="spliced")
+    assert sorted(spliced) == [10, 11]
+    assert spliced[10].zyxs[0, 0, 0] == 2.0
+    assert spliced[11].zyxs[0, 0, 0] == 4.0
+
+    plain = load_run_windings(meshes, variant="plain")
+    assert plain[10].zyxs[0, 0, 0] == 1.0
+    assert plain[11].zyxs[0, 0, 0] == 3.0

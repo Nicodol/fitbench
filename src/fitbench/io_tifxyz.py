@@ -28,7 +28,9 @@ import tifffile
 
 INVALID = -1.0
 
-_WINDING_DIR_RE = re.compile(r"^w(\d+)(_spliced)?$")
+# wNNN, wNNN_spliced, and the run-tagged forms villa writes when
+# FIT_SPIRAL_RUN_TAG is set: wNNN_<tag>, wNNN_spliced_<tag>.
+_WINDING_DIR_RE = re.compile(r"^w(\d+)(_spliced)?(?:_.+)?$")
 
 
 @dataclass
