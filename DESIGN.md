@@ -32,7 +32,9 @@ scores a whole-scroll winding family against evidence withheld from the fit.
     `tifxyz` per winding, as `fit_spiral` writes them; the tag comes from `FIT_SPIRAL_RUN_TAG`);
   - a combined QuadSurface with `winding_column_ranges` + `component_winding_ids` in `meta.json`
     (see `save_combined_tifxyz`);
-  - any directory of `tifxyz` surfaces with winding ids parseable from names (producer-agnostic).
+  - any directory of `tifxyz` surfaces whose winding ids are readable from the directory names
+    (`^w(\d+)(_spliced)?(_<tag>)?$`). Producer-agnostic within that convention: a producer that
+    names its surfaces differently needs a rename or a small loader change, not a new metric.
 - Evidence: held-out **verified patches** (`tifxyz`, with optional `mask.tif`, `winding.tif`),
   plus the umbilicus (z to yx polyline) when available.
 - Output: `report.json` (machine-readable), a Markdown summary, PNG overlays (windings over
@@ -67,15 +69,17 @@ Held-out, per patch (then aggregated):
   many turns. On one real patch that produced 0.986 for a surface whose own grid adjacencies were
   cut 18% of the time, against 0.399 from the raw modal fraction in the same report. See
   VALIDATION.md section 6.
-- **single-winding consistency** (raw): fraction of the patch's area assigned to its modal
-  winding id. Kept alongside because it is the simplest possible definition, but it has a
-  structural floor at the seam; the seam-aware metric above is the headline.
+- **single-winding consistency** (raw): fraction of the patch's scored quad centers assigned to
+  its modal winding id. Kept alongside because it is the simplest possible definition, but it has
+  a structural floor at the theta seam, where a correct fit necessarily splits a patch across two
+  winding ids.
 - **winding-number agreement**: when `winding.tif` is present, difference between relative winding
   deltas in the patch annotation and deltas of assigned winding ids.
 - **normal agreement**: angle between patch quad normals and the matched surface normals
   (p50/p90), sign-agnostic.
-- **fraction within tau** doubles as coverage: the share of patch area with a winding surface
-  within tolerance.
+- **fraction within tau** doubles as coverage: the share of a patch's scored quad centers with a
+  winding surface within tolerance. Every metric here counts quad centers, not surface area; the
+  two coincide only for evenly sampled grids.
 
 Intrinsic, no ground truth:
 
@@ -113,7 +117,13 @@ verified patches overlap heavily, and it is why scoring with `--fit-inputs` also
 **evidence leakage** geometrically: the distance of every scored point to the union of the fit's
 actual input surfaces, reported as a profile, plus an **unseen** aggregate over the points farther
 than `--unseen-min-dist` (default 2 vox) from every input. That measurement holds whatever the
-split did, and it is the number to quote when claiming evidence was withheld.
+split did, and it is the number to quote when claiming evidence was withheld. An input patch that
+cannot be read is a hard refusal (exit 5), because silently skipping it would understate leakage;
+`--allow-input-load-errors` accepts the weaker guarantee and records the count in the report.
+
+One caveat on the hash side: a manifest written before `geometry_sha256` existed (v1) makes the
+audit fall back to the full-content hash, which a metadata rewrite would defeat. The manifests
+shipped in `examples/` say which they are, and the leakage measurement does not depend on either.
 
 ### Why holding out is sound here, and what it costs
 

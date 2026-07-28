@@ -40,7 +40,7 @@ parrhesia scores a run from its output meshes alone, CPU-only, no checkpoint:
   physical patch must land on one continuous sheet), optional
   relative-winding agreement, and normal agreement. Given the fit's actual
   input patches, it also **measures evidence leakage geometrically** (how
-  much sealed area lies within touching distance of an input surface) and
+  many sealed points lie within touching distance of an input surface) and
   re-scores the genuinely unseen evidence separately: on real Paris 4 data,
   name-level splits leak massively through overlapping patch selections, and
   a hash audit cannot see that. JSON + Markdown + PNG overlays.

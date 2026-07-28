@@ -165,7 +165,7 @@ RTX 3060 Ti, identical settings and step budget), differing **in one input
 switch** (`use_verified_patches`), both scored against the same 94 sealed
 patches (49,458 quad centers, scoring restricted to the fitted window).
 
-For the dense run, parrhesia's leakage audit measures that 54.8% of the sealed
+For the dense run, parrhesia's leakage audit measures that 54.8% of the sealed points
 area lies within 0.5 vox of some fit-side input surface (overlapping patch
 selections; section 5), so the honest column for it is the **unseen** one:
 the 15,437 points farther than 2 vox from every input the fit consumed. The
@@ -176,7 +176,10 @@ Both columns are scored on **exactly the same 15,437 points**: the sealed
 evidence that lies more than 2 vox from every patch the dense run consumed,
 so neither run could have seen it. (Scoring each run on its own unseen set
 instead would compare two different point sets and flatter whichever run saw
-more; the sparse run saw none.)
+more; the sparse run saw none.) 15,457 points clear the 2 vox threshold in
+total; the aggregate uses 15,437 of them, because 25 patches contribute fewer
+than the eight unseen points required to enter a per-patch average. The report
+prints both counts.
 
 | measure | dense run | sparse run (no patches) |
 |---|---|---|

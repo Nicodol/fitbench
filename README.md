@@ -16,7 +16,8 @@ dissatisfy.
 
 `parrhesia` evaluates a fit *from its output meshes alone*, against **held-out verified patches**
 that the fit never saw, plus intrinsic topology checks that need no ground truth at all. It is
-producer-agnostic: anything that emits `tifxyz` winding surfaces can be scored, and two runs can
+producer-agnostic: any directory of `tifxyz` winding surfaces whose winding ids are readable from
+the directory names (`wNNN`, `wNNN_spliced`, with an optional run tag) can be scored, and two runs can
 be compared metric by metric.
 
 ## What it does
