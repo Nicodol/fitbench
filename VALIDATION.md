@@ -105,6 +105,9 @@ Artifacts: [`examples/real_run_smoke8_report.md`](examples/real_run_smoke8_repor
 [`examples/real_run_sparse1_report.md`](examples/real_run_sparse1_report.md),
 [`examples/compare_smoke8_vs_sparse1.md`](examples/compare_smoke8_vs_sparse1.md),
 [`examples/real_run_smoke8_overlay_z10675.png`](examples/real_run_smoke8_overlay_z10675.png).
+The villa satisfaction rows are verbatim log excerpts:
+[`examples/real_run_smoke8_villa_metrics.txt`](examples/real_run_smoke8_villa_metrics.txt),
+[`examples/real_run_sparse1_villa_metrics.txt`](examples/real_run_sparse1_villa_metrics.txt).
 
 ## Reproduce
 

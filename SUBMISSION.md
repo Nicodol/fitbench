@@ -1,4 +1,4 @@
-# Progress prize submission draft (July 2026)
+# Progress prize submission draft
 
 Form-ready text.
 
