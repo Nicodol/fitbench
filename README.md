@@ -32,6 +32,22 @@ be compared metric by metric.
 - **Run comparison**: the same report for two run folders, with deltas.
 - Reports as JSON + Markdown plus PNG overlays. CPU-only, no torch, no GPU, no checkpoint needed.
 
+## Typical uses
+
+Evaluation exists to make iteration safe. Concretely:
+
+- **Tuning**: change a hyperparameter or an input set, re-fit, `fitbench compare` the two runs.
+- **Regression testing**: after a change to the fitter's code, check that the output surfaces did
+  not get worse; satisfaction metrics cannot answer this post hoc.
+- **Cross-producer comparison**: any pipeline that emits `tifxyz` winding surfaces is scored with
+  the same ruler.
+- **Quality gate**: score one run and read the localized alerts (winding, z, theta) before
+  spending GPU-hours of ink detection on its surfaces.
+
+Scoring is cheap (CPU minutes, against GPU hours for a fit) and post hoc (existing run folders,
+nothing re-run), and the seeded split keeps the sealed exam identical across runs, so numbers
+stay comparable over time.
+
 See [DESIGN.md](DESIGN.md) for the metric definitions, the held-out split protocol, and the
 planted-defect validation plan, and [VALIDATION.md](VALIDATION.md) for what was tested and the
 resulting numbers (planted-defect matrix, mutation audit, real-data controls).

@@ -96,6 +96,32 @@ actual input surfaces, reported as a profile, plus an **unseen** aggregate over 
 than `--unseen-min-dist` (default 2 vox) from every input. That measurement holds whatever the
 split did, and it is the number to quote when claiming evidence was withheld.
 
+### Why holding out is sound here, and what it costs
+
+There is no train/test generalization in `fit_spiral`: it is per-scroll optimization, not
+learning. Held-out evaluation is still the right instrument, for the same reason it has long been
+standard when validating interpolations (geostatistics used withheld control points well before
+machine learning): a model with millions of degrees of freedom (the deformation field) can
+satisfy every constraint it was given while being wrong *between* them. Scoring on withheld
+evidence measures exactly that "between": is the surface right where nothing dictated it?
+
+Two consequences are accepted deliberately:
+
+- A scored run is fit on the fit side only, so it is slightly less guided than a production fit
+  would be. The suite's job is comparative: settings, code versions and producers are ranked
+  while deprived of the same held-out side. For the surface actually shipped, refit the winning
+  configuration on 100% of the patches; the intrinsic checks, which consume no ground truth,
+  apply to that production fit unchanged.
+- Performance on the evidence the fit consumed is a different quantity, not a wrong one: it is
+  constraint satisfaction measured with a neutral ruler. The **gap** between it and the unseen
+  score is the overfitting signal. A report produced with `--fit-inputs` carries both sides of
+  that gap (the leakage-stratified aggregates); the headline numbers are the unseen ones, because
+  the consumed side is directly optimized and therefore gameable. Deliberately scoring the fit
+  side stays possible behind `--allow-unlisted-patches`, as a diagnostic. The v0 correction in
+  VALIDATION.md section 6 is an involuntary demonstration of the gap's size on a real run:
+  normal agreement p90 of 35.0 deg on the naive sealed set (54.8% of it effectively seen)
+  against 49.9 deg on unseen evidence.
+
 ## Validation plan (before any claim)
 
 The windcheck standard, adopted:
