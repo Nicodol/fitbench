@@ -430,6 +430,19 @@ Artifacts: [`examples/real_run_smoke8_report.md`](examples/real_run_smoke8_repor
 [`examples/real_run_sparse2_report.md`](examples/real_run_sparse2_report.md),
 [`examples/compare_smoke8_vs_sparse2.md`](examples/compare_smoke8_vs_sparse2.md),
 [`examples/real_run_smoke8_overlay_z10749.png`](examples/real_run_smoke8_overlay_z10749.png).
+
+The machine-readable reports behind both tables ship too, so every number above
+can be rechecked, and the bootstrap re-run, from this repository alone without
+the 1.1 GB of run folders:
+[`examples/real_run_smoke8_report.json`](examples/real_run_smoke8_report.json)
+and [`examples/real_run_sparse2_report.json`](examples/real_run_sparse2_report.json).
+Only the `meta` paths were replaced by placeholders; every measured field is
+untouched.
+
+```bash
+uv run python scripts/bootstrap_ci.py \
+    examples/real_run_smoke8_report.json examples/real_run_sparse2_report.json --unseen
+```
 The villa satisfaction rows are verbatim log excerpts:
 [`examples/real_run_smoke8_villa_metrics.txt`](examples/real_run_smoke8_villa_metrics.txt),
 [`examples/real_run_sparse2_villa_metrics.txt`](examples/real_run_sparse2_villa_metrics.txt).
