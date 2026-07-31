@@ -1,4 +1,4 @@
-# parrhesia design notes
+# spiralcheck design notes
 
 Working notes, kept in-repo so reviewers can check the reasoning. Dates are 2026.
 
@@ -53,7 +53,7 @@ them is not credible:
 - **`vc_calc_surface_metrics`** (`apps/src/`, documented in `docs/surface_metrics.md`) scores a
   tifxyz surface against a hand-annotated ground-truth point collection, CPU-only, no checkpoint,
   post hoc: `surface_missing_fraction`, `winding_error_fraction`, `in_surface_metric`. It needs
-  `vc_tifxyz_winding` first. This is the closest prior art to what parrhesia does, and it covers
+  `vc_tifxyz_winding` first. This is the closest prior art to what spiralcheck does, and it covers
   three of the same ideas. It scores *one surface* against *point collections*; it does not score
   a whole winding family against withheld tifxyz patches, and it carries no split protocol and no
   leakage audit.
@@ -171,7 +171,7 @@ Run comparison: same report for runs A and B, plus a delta table keyed by metric
 
 ## Held-out protocol
 
-`parrhesia split`: deterministic, seeded split of a verified-patch directory into `fit/` and
+`spiralcheck split`: deterministic, seeded split of a verified-patch directory into `fit/` and
 `heldout/` (default 80/20 of *families*, stratified by z: the z-ordered families are cut into as
 many near-equal blocks as there are families to hold out, and one family per block is drawn.
 Families differ in size, so the patch-level fraction that comes out is close but not equal to the
@@ -183,7 +183,7 @@ names must not straddle), and a whole family goes to one side; the writer self-c
 held-out geometry exists on the fit side before writing the manifest.
 `split_manifest.json` records the seed, every assignment, the grouping, and two hashes per patch:
 `content_sha256` (all files) and `geometry_sha256` (geometry files only, immune to metadata
-rewrites). `parrhesia score --manifest --fit-inputs` refuses to score (exit 3) when a held-out
+rewrites). `spiralcheck score --manifest --fit-inputs` refuses to score (exit 3) when a held-out
 patch is found among the fit inputs, matching by geometry hash, recursively; it also refuses
 (exit 4) when the *scored* patches are not the manifest's held-out side.
 

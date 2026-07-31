@@ -1,4 +1,4 @@
-# parrhesia compare
+# spiralcheck compare
 
 | metric | A | B | B - A |
 |---|---|---|---|

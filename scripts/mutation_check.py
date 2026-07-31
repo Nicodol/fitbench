@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SRC = ROOT / "src" / "parrhesia"
+SRC = ROOT / "src" / "spiralcheck"
 
 MUTATIONS = [
     ("geometry.py", "    ab = b - a\n", "    ab = a - b\n",

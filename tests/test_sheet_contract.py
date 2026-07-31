@@ -24,7 +24,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from parrhesia.metrics import largest_sheet_fraction, sheet_components
+from spiralcheck.metrics import largest_sheet_fraction, sheet_components
 
 TURN = 1.0  # u is measured in turns by construction
 

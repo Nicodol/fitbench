@@ -3,9 +3,9 @@
 import numpy as np
 import pytest
 
-from parrhesia.io_tifxyz import INVALID, QuadSurface
-from parrhesia.metrics import WindingFamilySoup, score_patch, score_patches
-from parrhesia.synthetic import (
+from spiralcheck.io_tifxyz import INVALID, QuadSurface
+from spiralcheck.metrics import WindingFamilySoup, score_patch, score_patches
+from spiralcheck.synthetic import (
     collapse_gap,
     make_family,
     radial_drift,
@@ -212,7 +212,7 @@ def test_per_patch_fields_match_their_own_point_payload(clean_family):
     """Every published per-patch number must be recomputable from that
     patch's own points. Aggregate-level tests cannot catch a percentile
     published under the wrong name in the per-patch table."""
-    from parrhesia.metrics import largest_sheet_fraction
+    from spiralcheck.metrics import largest_sheet_fraction
 
     patches = {
         "a": sample_patch(11, PITCH, (0.5, 2.5), (8.0, 52.0), rows=6, cols=18),
@@ -346,7 +346,7 @@ def test_sheet_components_structure():
     """The component rule itself: both grid directions must be used, the
     jump threshold must bite, and the merge must bridge holes without
     bridging switches. These are the cases that let a broken rewrite pass."""
-    from parrhesia.metrics import largest_sheet_fraction, sheet_components
+    from spiralcheck.metrics import largest_sheet_fraction, sheet_components
 
     # A band drifting along columns, cut in two by a hole: one sheet.
     u, q = grid_case(6, 90, lambda r, c: 10.0 + 2.0 * c / 90,
@@ -385,7 +385,7 @@ def test_sheet_components_structure():
 
 
 def test_sheet_components_degenerate_inputs():
-    from parrhesia.metrics import largest_sheet_fraction, sheet_components
+    from spiralcheck.metrics import largest_sheet_fraction, sheet_components
 
     empty = np.zeros(0)
     assert len(sheet_components(empty, np.zeros((0, 2), dtype=int))) == 0
@@ -418,7 +418,7 @@ def test_leakage_union_over_multiple_inputs(clean_family):
     """The leakage measurement must be the union over ALL fit inputs,
     verified against an independent per-input minimum: a soup broken past
     input number one flatters the unseen numbers (review-2 blocking finding)."""
-    from parrhesia.geometry import TriangleSoup, surface_distance
+    from spiralcheck.geometry import TriangleSoup, surface_distance
 
     held = {
         "a": sample_patch(11, PITCH, (0.4, 1.4), (8.0, 52.0), rows=8, cols=12),
@@ -496,7 +496,7 @@ def test_aggregates_are_point_weighted_and_min_is_min(clean_family):
 def test_engine_errors_propagate(clean_family, monkeypatch):
     """Only PatchSkip may be skipped; any other failure must propagate
     loudly instead of silently shrinking the evaluation set."""
-    import parrhesia.metrics as m
+    import spiralcheck.metrics as m
 
     patch = sample_patch(11, PITCH, (0.4, 1.6), (8.0, 52.0))
 
@@ -552,7 +552,7 @@ def test_unseen_aggregate_is_not_a_copy_of_the_main_one(clean_family):
     """The unseen block is a separate reduction and needs its own controls:
     weighted by unseen points (not patch size), min really a min, tau really
     used. All three survived the suite until this test existed."""
-    from parrhesia.metrics import largest_sheet_fraction
+    from spiralcheck.metrics import largest_sheet_fraction
 
     # A big clean patch, mostly seen; a small switched patch, fully unseen.
     big_clean = sample_patch(13, PITCH, (2.0, 3.4), (8.0, 52.0), rows=12, cols=24)
@@ -602,7 +602,7 @@ def test_per_patch_unseen_block_matches_its_own_points(clean_family):
     """The per-patch unseen block is what lets a reader resample the unseen
     column; every field must be recomputable from that patch's own unseen
     points, and it must differ from the full-patch numbers."""
-    from parrhesia.metrics import largest_sheet_fraction
+    from spiralcheck.metrics import largest_sheet_fraction
 
     held = sample_patch(11, PITCH, (0.4, 2.4), (8.0, 52.0), rows=8, cols=24)
     cover = sample_patch(11, PITCH, (0.4, 1.4), (8.0, 52.0), rows=8, cols=24)

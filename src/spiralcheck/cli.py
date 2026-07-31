@@ -1,4 +1,4 @@
-"""Command-line interface for parrhesia. See DESIGN.md for the method."""
+"""Command-line interface for spiralcheck. See DESIGN.md for the method."""
 
 from __future__ import annotations
 
@@ -153,7 +153,7 @@ def cmd_score(args) -> int:
             )
         intrinsic = intrinsic_report(family, umbilicus=_load_umbilicus(args.umbilicus))
     meta = {
-        "parrhesia": __version__,
+        "spiralcheck": __version__,
         "meshes": str(args.meshes),
         "patches": str(args.patches),
         "variant": args.variant,
@@ -192,7 +192,7 @@ def cmd_intrinsic(args) -> int:
         )
     rep = intrinsic_report(family, umbilicus=_load_umbilicus(args.umbilicus))
     meta = {
-        "parrhesia": __version__,
+        "spiralcheck": __version__,
         "meshes": str(args.meshes),
         "n_windings": len(family),
         "umbilicus": args.umbilicus,
@@ -227,8 +227,8 @@ def cmd_compare(args) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="parrhesia")
-    parser.add_argument("--version", action="version", version=f"parrhesia {__version__}")
+    parser = argparse.ArgumentParser(prog="spiralcheck")
+    parser.add_argument("--version", action="version", version=f"spiralcheck {__version__}")
     sub = parser.add_subparsers(dest="command", required=False)
 
     p = sub.add_parser("score", help="score a run's windings against held-out patches")

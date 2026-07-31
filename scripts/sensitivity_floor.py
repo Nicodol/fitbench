@@ -15,10 +15,10 @@ from __future__ import annotations
 
 import numpy as np
 
-from parrhesia.intrinsic import intrinsic_report
-from parrhesia.io_tifxyz import QuadSurface
-from parrhesia.metrics import WindingFamilySoup, score_patch, score_patches
-from parrhesia.synthetic import (
+from spiralcheck.intrinsic import intrinsic_report
+from spiralcheck.io_tifxyz import QuadSurface
+from spiralcheck.metrics import WindingFamilySoup, score_patch, score_patches
+from spiralcheck.synthetic import (
     collapse_gap,
     make_family,
     radial_drift,

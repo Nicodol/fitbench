@@ -17,8 +17,8 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from parrhesia.geometry import TriangleSoup, surface_distance
-from parrhesia.io_tifxyz import face_boundary_mask, load_tifxyz
+from spiralcheck.geometry import TriangleSoup, surface_distance
+from spiralcheck.io_tifxyz import face_boundary_mask, load_tifxyz
 
 CORE = ("meta.json", "x.tif", "y.tif", "z.tif")
 

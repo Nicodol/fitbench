@@ -4,7 +4,7 @@ Form-ready text.
 
 ---
 
-**Title**: parrhesia, a held-out evaluation suite for whole-scroll surface fits
+**Title**: spiralcheck, a held-out evaluation suite for whole-scroll surface fits
 
 **What problem does this solve?**
 
@@ -47,14 +47,14 @@ and the more an independent, held-out measure is needed.
 
 **What does the tool do?**
 
-parrhesia scores a run from its output meshes alone, CPU-only, no checkpoint:
+spiralcheck scores a run from its output meshes alone, CPU-only, no checkpoint:
 
-- `parrhesia split`: seeded, z-stratified held-out split of verified patches,
+- `spiralcheck split`: seeded, z-stratified held-out split of verified patches,
   grouped by family so overlapping selections of one parent never straddle
   the split, with content and geometry hashes in the manifest; `score`
   refuses to run if the fit's inputs contain held-out patches, or if the
   scored patches are not the manifest's held-out side (audits built in).
-- `parrhesia score`: for each held-out patch, exact surface-distance
+- `spiralcheck score`: for each held-out patch, exact surface-distance
   percentiles against the winding family, fraction within tau (default 6 vox,
   matching the satisfaction tolerance), seam-aware sheet consistency (a
   physical patch must land on one continuous sheet), optional
@@ -64,10 +64,10 @@ parrhesia scores a run from its output meshes alone, CPU-only, no checkpoint:
   re-scores the genuinely unseen evidence separately: on real Paris 4 data,
   name-level splits leak massively through overlapping patch selections, and
   a hash audit cannot see that. JSON + Markdown + PNG overlays.
-- `parrhesia intrinsic`: ground-truth-free checks: radial monotonicity around
+- `spiralcheck intrinsic`: ground-truth-free checks: radial monotonicity around
   the umbilicus, collapsed/inflated inter-winding gaps, validity; violations
   localized in (z, theta).
-- `parrhesia compare`: same metrics for two runs, delta table.
+- `spiralcheck compare`: same metrics for two runs, delta table.
 
 Reads standard tifxyz (per-winding `wNNN[_spliced]` dirs or combined
 QuadSurfaces with `winding_column_ranges`); producer-agnostic by design.
@@ -126,13 +126,13 @@ Two real `fit_spiral` runs on PHerc. Paris 4 (z 10600-10900, consumer GPU,
 identical settings and step budget), differing in one input switch
 (`use_verified_patches`). Both are scored on **the same 15,437 points**: the
 sealed evidence lying more than 2 vox from every patch the dense run
-consumed, so neither run could have seen it. parrhesia's leakage audit is
+consumed, so neither run could have seen it. spiralcheck's leakage audit is
 what identifies those points: 54.8% of the naively "sealed" evidence was in
 fact within half a voxel of an input the dense run had, through overlapping
 patch selections that no name- or hash-level split can see.
 
 - *Dense run* (fit-side patches): the two instruments agree. Satisfaction
-  5/389 patches (1.3%); parrhesia median distance 4.21 vox, p99 17.7 vox,
+  5/389 patches (1.3%); spiralcheck median distance 4.21 vox, p99 17.7 vox,
   67.6% within tau = 6. A deliberately cheap fit (1,500 steps, 8 GB VRAM),
   judged weak by both.
 - *Sparse run* (no patches, the minimal-input regime #1237 declares a valid
@@ -149,7 +149,7 @@ patch selections that no name- or hash-level split can see.
   are not meant to restate them: it answers whether a gap is stable under
   resampling, not how large the pooled gap is.
 
-Reports, the leakage profile, and the delta table (`parrhesia compare`) ship
+Reports, the leakage profile, and the delta table (`spiralcheck compare`) ship
 in `examples/`; VALIDATION.md section 6 also documents, openly, every
 correction our own review rounds forced on earlier versions of this very
 table: a fiber input left enabled in the first sparse companion, dense
@@ -159,7 +159,7 @@ published gain came from one mis-rated patch.
 
 **Links**
 
-- Repository: https://github.com/Nicodol/parrhesia, MIT, CI on
+- Repository: https://github.com/Nicodol/spiralcheck, MIT, CI on
   Linux/Windows/macOS.
 - DESIGN.md documents metrics, protocol, and validation; report examples in
   the repo.

@@ -25,9 +25,9 @@ from pathlib import Path
 
 import numpy as np
 
-from parrhesia.intrinsic import intrinsic_report, resolve_umbilicus
-from parrhesia.io_tifxyz import QuadSurface, load_run_windings, load_tifxyz
-from parrhesia.metrics import score_patches
+from spiralcheck.intrinsic import intrinsic_report, resolve_umbilicus
+from spiralcheck.io_tifxyz import QuadSurface, load_run_windings, load_tifxyz
+from spiralcheck.metrics import score_patches
 
 
 def displace(surface: QuadSurface, umbilicus, delta: float) -> QuadSurface:

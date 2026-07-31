@@ -1,7 +1,7 @@
 """Synthetic scroll fixtures: an ideal archimedean winding family, patch
 samplers, and defect injectors.
 
-These are the ground truth for validating every parrhesia metric: on the clean
+These are the ground truth for validating every spiralcheck metric: on the clean
 fixture the held-out metrics must be exactly null and the intrinsic checks
 silent; after a planted defect the corresponding metric must fire. The scroll
 model matches the fit_spiral idealization: windings of an archimedean spiral

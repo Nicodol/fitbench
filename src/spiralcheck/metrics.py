@@ -138,7 +138,7 @@ def sheet_components(
     is bridged whatever its size; a switch shows a full-turn residual at zero
     grid distance and is never bridged.
 
-    Comparing component *medians* instead (parrhesia v0.3) is wrong in both
+    Comparing component *medians* instead (spiralcheck v0.3) is wrong in both
     directions and was withdrawn: it splits a long band that merely has a
     hole, and it chains fragments across many turns. On PHerc. Paris 4 that
     rated one heavily switched patch 0.986 while 18% of its own grid
@@ -498,7 +498,7 @@ def score_patches(
         # Pooled over points, like the distance percentiles above and like the
         # unseen block: a weighted mean of per-patch p90 is a different
         # estimator, and mixing the two across a comparison table produced a
-        # spurious "inversion" in parrhesia v0.3.
+        # spurious "inversion" in spiralcheck v0.3.
         "normal_angle_p90_deg": float(np.percentile(all_angles, 90)),
         "mean_winding_agreement": (
             float(

@@ -1,4 +1,4 @@
-# parrhesia
+# spiralcheck
 
 **Held-out geometric evaluation for whole-scroll surface fits.**
 
@@ -27,7 +27,7 @@ not by preference. (villa's satisfaction checks identity too, with a 0.45-pitch 
 tolerance; the difference is that it does so through the fit's own transform, and only on the
 fit's own inputs.)
 
-`parrhesia` evaluates a fit *from its output meshes alone*, against **held-out verified patches**
+`spiralcheck` evaluates a fit *from its output meshes alone*, against **held-out verified patches**
 that the fit never saw, plus intrinsic topology checks that need no ground truth at all. It is
 producer-agnostic: any directory of `tifxyz` winding surfaces whose winding ids are readable from
 the directory names (`wNNN`, `wNNN_spliced`, with an optional run tag) can be scored, and two runs can
@@ -38,7 +38,7 @@ be compared metric by metric.
 - **Held-out accuracy**: surface-distance percentiles and fraction within tau, sheet consistency
   (seam-aware and drift-aware, via a continuous winding coordinate) plus the raw single-winding
   fraction, winding-number agreement, and normal agreement, per held-out patch and aggregated.
-- **Evidence-leakage audit**: given the fit's actual input patches, parrhesia measures how much of
+- **Evidence-leakage audit**: given the fit's actual input patches, spiralcheck measures how much of
   the "held-out" evidence lies within touching distance of an input surface (overlapping patch
   selections make name-level splits leaky) and re-scores the genuinely unseen evidence separately.
 - **Intrinsic checks**: radial monotonicity of the winding family around the umbilicus,
@@ -50,7 +50,7 @@ be compared metric by metric.
 
 Evaluation exists to make iteration safe. Concretely:
 
-- **Tuning**: change a hyperparameter or an input set, re-fit, `parrhesia compare` the two runs.
+- **Tuning**: change a hyperparameter or an input set, re-fit, `spiralcheck compare` the two runs.
 - **Regression testing**: after a change to the fitter's code, check that the output surfaces did
   not get worse; satisfaction metrics cannot answer this post hoc.
 - **Cross-producer comparison**: any pipeline that emits `tifxyz` winding surfaces is scored with
@@ -98,5 +98,5 @@ and does not mean.
   tifxyz surface against hand-annotated ground-truth point collections, CPU-only and
   checkpoint-free. DESIGN.md says what it covers and what it leaves to this suite.
 - [windcheck](https://github.com/joe-carr-data/windcheck) pioneered label-free consistency checking
-  for individual traced segments; parrhesia targets whole-scroll fit runs and run-to-run comparison.
+  for individual traced segments; spiralcheck targets whole-scroll fit runs and run-to-run comparison.
 - The vesuvius-sheet-tools thread's public PHerc1218 input pack is a candidate second test case.

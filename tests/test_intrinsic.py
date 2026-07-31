@@ -2,8 +2,8 @@
 
 import numpy as np
 
-from parrhesia.intrinsic import intrinsic_report, resolve_umbilicus
-from parrhesia.synthetic import collapse_gap, make_family, punch_holes, radial_drift, swap_band
+from spiralcheck.intrinsic import intrinsic_report, resolve_umbilicus
+from spiralcheck.synthetic import collapse_gap, make_family, punch_holes, radial_drift, swap_band
 
 PITCH = 10.0
 BAND = (1.0, 2.0)

@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from parrhesia.geometry import TriangleSoup, closest_point_on_triangles, surface_distance
+from spiralcheck.geometry import TriangleSoup, closest_point_on_triangles, surface_distance
 
 
 def brute_force_distance(points, soup):

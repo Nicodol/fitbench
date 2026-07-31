@@ -83,7 +83,7 @@ def write_report(
         payload["intrinsic"] = intrinsic.to_dict()
     (out_dir / "report.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
-    lines = ["# parrhesia report", ""]
+    lines = ["# spiralcheck report", ""]
     if meta:
         lines += [f"- {k}: {v}" for k, v in meta.items()] + [""]
     if aggregate is not None:
@@ -235,7 +235,7 @@ def compare_reports(report_a: str | Path, report_b: str | Path, out_path: str | 
                         )
             elif isinstance(va, (int, float)) and isinstance(vb, (int, float)):
                 rows.append([f"{section}.{key}", f"{va:.4g}", f"{vb:.4g}", f"{vb - va:+.4g}"])
-    text = "# parrhesia compare\n\n" + _md_table(rows, ["metric", "A", "B", "B - A"]) + "\n"
+    text = "# spiralcheck compare\n\n" + _md_table(rows, ["metric", "A", "B", "B - A"]) + "\n"
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(text, encoding="utf-8")

@@ -1,6 +1,6 @@
-# parrhesia report
+# spiralcheck report
 
-- parrhesia: 0.4.0
+- spiralcheck: 0.4.0
 - meshes: G:\projets\vesuvius\runs\sparse2\2026-07-28_s1_slice-10600-10900_0-patch_sparse2\meshes\fitted_sparse2
 - patches: G:\projets\vesuvius\windows\z10600_10900\heldout_strict
 - variant: spliced
@@ -8,7 +8,7 @@
 - tau: 6.0
 - z_range: 10600,10900
 - umbilicus: G:\projets\vesuvius\spiral-dataset\PHercParis4\umbilicus.json
-- manifest: G:\projets\vesuvius\parrhesia\examples\PHercParis4_v1_split_manifest.json
+- manifest: G:\projets\vesuvius\spiralcheck\examples\PHercParis4_v1_split_manifest.json
 - fit_inputs: G:\projets\vesuvius\windows\z10600_10900\verified_fit
 - unseen_min_dist: 2.0
 - patches_dir_listed_in_manifest: 98

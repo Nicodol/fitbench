@@ -4,11 +4,11 @@ import json
 
 import pytest
 
-from parrhesia.cli import main
-from parrhesia.io_tifxyz import save_tifxyz
-from parrhesia.metrics import score_patches
-from parrhesia.split import audit_fit_inputs, split_patches
-from parrhesia.synthetic import make_family, radial_drift, sample_patch
+from spiralcheck.cli import main
+from spiralcheck.io_tifxyz import save_tifxyz
+from spiralcheck.metrics import score_patches
+from spiralcheck.split import audit_fit_inputs, split_patches
+from spiralcheck.synthetic import make_family, radial_drift, sample_patch
 
 PITCH = 10.0
 

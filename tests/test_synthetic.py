@@ -2,9 +2,9 @@
 
 import numpy as np
 
-from parrhesia.geometry import TriangleSoup, surface_distance
-from parrhesia.io_tifxyz import INVALID
-from parrhesia.synthetic import (
+from spiralcheck.geometry import TriangleSoup, surface_distance
+from spiralcheck.io_tifxyz import INVALID
+from spiralcheck.synthetic import (
     collapse_gap,
     make_family,
     punch_holes,
