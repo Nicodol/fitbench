@@ -194,12 +194,18 @@ weeks for several of these, and no ordering claim here depends on them.
 
 ## Operating point
 
-- Units: all distances in this suite are **full-resolution voxels of the scan grid** the
-  surfaces are expressed in. For PHerc. Paris 4 (every number in this repo) one voxel is
-  **9.6 um**: `voxel_size_um = 9.6` in the PHercParis4 header of villa's `fit_spiral.py`,
-  both at the commit our demo runs pinned (`51b8499`) and at current main. So tau = 6 vox
-  is 57.6 um, and the demo's p99 gap (17.7 vs 246 vox) is 0.17 vs 2.36 mm; pitch-based
-  figures quoted by the community (e.g. 187.3 um) divide by 9.6 to compare.
+- Units: all distances in this suite are voxels of **the grid the surfaces are expressed
+  in**. For PHerc. Paris 4 (every number in this repo) that grid is level 2 (x4 rebin,
+  **9.6 um/voxel**) of the 2026 canonical 2.400 um scan volume (`20260411134726-2.400um`),
+  *not* the older 7.91 um volume; "full-resolution" in the spiral pipeline's own
+  vocabulary names this grid, as opposed to the further-downsampled lasagna volumes.
+  Three independently checkable sources agree: `voxel_size_um = 9.6` in the PHercParis4
+  header of villa's `fit_spiral.py` (at our pinned demo commit `51b8499` and at current
+  main); villa's banner script addresses these very meshes at zarr level 2 of the
+  2.400 um volume (`render_banner_spiral_gif.py`); and the `area_cm2`/`area_vx2` pairs
+  carried by the dataset's patch `meta.json` imply 9.600 um. So tau = 6 vox is 57.6 um,
+  and the demo's p99 gap (17.7 vs 246 vox) is 0.17 vs 2.36 mm; pitch-based figures
+  quoted by the community (e.g. 187.3 um) divide by 9.6 to compare.
 - Input: a run's winding surfaces. Layouts supported:
   - `out/<run>/meshes/fitted[_<tag>]/wNNN[_<tag>]/` and `wNNN_spliced[_<tag>]/` directories (one
     `tifxyz` per winding, as `fit_spiral` writes them; the tag comes from `FIT_SPIRAL_RUN_TAG`);
