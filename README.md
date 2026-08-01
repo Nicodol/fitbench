@@ -97,6 +97,21 @@ and does not mean.
   villa also ships `vc_calc_surface_metrics` (`docs/surface_metrics.md`), which scores a single
   tifxyz surface against hand-annotated ground-truth point collections, CPU-only and
   checkpoint-free. DESIGN.md says what it covers and what it leaves to this suite.
+- The evaluation protocol for this task was published with the method: Paul Henderson,
+  [*Virtually Unrolling the Herculaneum Papyri by Diffeomorphic Spiral Fitting*](https://arxiv.org/abs/2512.04927),
+  which scores a fit against a hand-made reference mesh with a winding-indexed metric and a
+  distance metric side by side. That pairing is the standard this suite follows; what it adds is a
+  sealed split over the sparse verified patches that exist for every scroll, a measured leakage
+  audit, and a run folder as the unit of work. DESIGN.md maps metric to metric and names the two
+  of its five we deliberately do not implement.
 - [windcheck](https://github.com/joe-carr-data/windcheck) pioneered label-free consistency checking
   for individual traced segments; spiralcheck targets whole-scroll fit runs and run-to-run comparison.
+- Neighbouring work from July 2026, none of which scores whole-fit output against withheld patches,
+  and all of which are worth reading first:
+  [sheetcheck](https://github.com/DomRusso2/sheetcheck) (local surface-against-CT geometry),
+  [winding-ruler](https://github.com/pscamillo/winding-ruler) (the marginal value of winding
+  annotations, and a collection-wide pitch atlas that independently confirms the Paris 4 pitch used
+  here), ScrollAnchor (discontinuity review candidates), and
+  [herculaneum-scroll-tools](https://github.com/axiosdevs/herculaneum-scroll-tools) (CT-consistency
+  audit, constraint verification).
 - The vesuvius-sheet-tools thread's public PHerc1218 input pack is a candidate second test case.

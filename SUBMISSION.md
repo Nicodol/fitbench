@@ -157,6 +157,38 @@ numbers computed on evidence the fit had seen, a normal-agreement row that
 compared two different estimators, and a sheet-consistency rule whose entire
 published gain came from one mis-rated patch.
 
+**Related work, and what is genuinely new here**
+
+The pairing this suite rests on is not our invention, and the paper behind
+`fit_spiral` states it: Henderson, *Virtually Unrolling the Herculaneum Papyri
+by Diffeomorphic Spiral Fitting* (arXiv:2512.04927), scores a fit against a
+hand-made reference mesh with a winding-indexed metric (winding jump fraction,
+mean radial winding distance) next to a distance metric (chamfer), plus two
+intrinsic sheet-quality metrics. The blind-spot measurement above is why that
+pairing is mandatory rather than a matter of taste.
+
+What is missing is the tooling and the portability. The public repository ships
+the fitting method, not the metrics, and no route to reproduce the paper's
+table; the reference mesh it scores against is, in the paper's own account,
+hundreds of hours of annotation covering one region of one scroll. spiralcheck
+takes the same pairing to the sparse verified patches that already exist for
+every scroll, seals them with a split protocol, measures the leakage instead of
+assuming it, and scores any producer's finished run folder on a CPU. Two of the
+paper's five metrics, angular defect and stretching, judge the flattened chart
+rather than its placement in the volume; they are out of scope here and
+DESIGN.md says why.
+
+Five community QA tools landed in July 2026, none scoring whole-fit output
+against withheld evidence: sheetcheck (surface-against-CT geometry, which
+explicitly abandons the global winding coordinate), winding-ruler (the marginal
+value of winding annotations; its finding that high-concordance automatic
+constraint generators still degrade the fit is an independent argument for
+output-side evaluation, and its Paris 4 pitch matches the one assumed here),
+ScrollAnchor (discontinuity review candidates), herculaneum-scroll-tools
+(CT-consistency audit and constraint verification), and khj1222's held-out
+harness for ink detection. windcheck remains the closest in spirit, on
+individual traced segments rather than whole fits.
+
 **Links**
 
 - Repository: https://github.com/Nicodol/spiralcheck, MIT, CI on

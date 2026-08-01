@@ -73,6 +73,70 @@ What is left uncovered, and is what this suite does: scoring a whole-scroll wind
 hoc and CPU-only, against verified patches withheld from the fit, with the leakage between "held
 out" and "consumed" measured rather than assumed.
 
+### The published protocol for this task, and why it is not yet a tool
+
+The spiral fit does not lack an evaluation protocol: the paper behind `fit_spiral` states one.
+Paul Henderson, *Virtually Unrolling the Herculaneum Papyri by Diffeomorphic Spiral Fitting*
+([arXiv:2512.04927](https://arxiv.org/abs/2512.04927)), scores a fit with five metrics against a
+manually created reference mesh spanning about thirty windings of PHerc. Paris 4, compares against
+ThaumatoAnakalyptor, and ablates the losses:
+
+- **WJF**, winding jump fraction: "how often the ground-truth surfaces cross between different
+  windings of our spiral". The failure that sheet consistency and winding agreement target here,
+  measured from the other side.
+- **MRWD**, mean radial winding distance: "the mean over windings, of distance from the K-th
+  spiral winding to the K-th ground-truth winding". Winding-indexed, so it is not pitch-blind.
+- **ChD**, "the one-directional chamfer distance from the ground-truth surface to the predicted
+  surface". Our distance percentiles, reduced to a mean.
+- **AD**, mean angular defect over mesh vertices, and **Str**, in-sheet stretching: intrinsic sheet
+  quality. This suite measures neither (see Non-goals).
+
+The first three are the ideas this suite is built on, which is a confirmation and not a problem:
+carrying a winding-indexed measure next to a distance measure is the published standard for this
+task, not an invention of ours, and the pitch-blindness result below is the reason that pairing is
+mandatory rather than tasteful.
+
+What does not exist is the tooling. The public repository
+([pmh47/spiral-fitting](https://github.com/pmh47/spiral-fitting), `master`, last pushed December
+2025) ships the fitting method; its README says the ground-truth mesh is used "only for
+visualisation and evaluation" and points at a path on the challenge servers, and it contains no
+metric implementation and no route to reproduce the paper's table. Nor is the protocol portable as
+stated: it is scored against a dense reference mesh covering one region of one scroll, described
+in the paper as hundreds of hours of human annotation.
+
+spiralcheck takes the same pairing to the evidence that already exists for every scroll — sparse
+verified patches — seals them by protocol, measures the leakage rather than assuming it, and runs
+on any producer's finished run folder without a GPU. Where that reference mesh is available it is
+the stronger instrument, and the honest next validation step for this suite: scoring our distance
+engine against its chamfer distance would check our engine against an independent implementation.
+
+### The July 2026 wave of community QA tools
+
+Five independent QA or evaluation tools appeared in the four weeks to 1 August 2026. None takes
+this suite's object, and the boundaries are worth stating precisely, because they are what would
+justify a sixth:
+
+- **[sheetcheck](https://github.com/DomRusso2/sheetcheck)** (27 July) measures traced surfaces
+  against the CT locally: support between air-gap and papyrus intensity, offset to the nearest
+  sheet centre, planarity. It deliberately drops the global winding coordinate ("azimuth about a
+  fitted scroll axis is not a usable winding coordinate") and retracts its own pitch column as
+  unreliable. It answers "is this surface on papyrus", never "is it on the right winding".
+- **[winding-ruler](https://github.com/pscamillo/winding-ruler)** (31 July) measures winding
+  *evidence*: the marginal effect of human winding annotations on a fit by ablation, a calibrated
+  pairwise winding estimator against held-out human labels, and a collection-wide pitch atlas. Its
+  fit-quality readout is still villa's satisfaction, and it does not score output surfaces against
+  withheld patches. Two of its results matter here: three automatic constraint generators degrade
+  the fit despite agreeing well with human labels, which is an independent argument for measuring
+  outputs rather than inputs; and its Paris 4 pitch, about 18.8 working-grid voxels, independently
+  matches the pitch the blindness control assumes.
+- **ScrollAnchor** (villa PR #1293, 31 July) surfaces suspicious discontinuities in reconstructed
+  surfaces as review candidates, explicitly "not as confirmed sheet skips".
+- **[herculaneum-scroll-tools](https://github.com/axiosdevs/herculaneum-scroll-tools)** (29 July)
+  audits published surface predictions against the CT (phantom voxels where the masked scan reads
+  zero) and ships a winding-constraint annotator with a geometric verifier. Volume- and input-side.
+- **khj1222's held-out validation harness** (July) applies the same held-out discipline to ink
+  detection rather than geometry.
+
 ## Operating point
 
 - Input: a run's winding surfaces. Layouts supported:
@@ -320,5 +384,16 @@ the audit: the audit polices the tests, including the new ones.
 
 ## Non-goals v0
 
-Ink-based anything, VC3D plugin, GPU, fixing fits (we only measure). Later maybe: CI-friendly
-tiny fixtures, a `--compare` HTML report, ScrollFiesta adapter if formats differ.
+Ink-based anything, VC3D plugin, GPU, fixing fits (we only measure).
+
+Deliberately excluded although standard: **intrinsic sheet quality**, the angular defect and
+in-sheet stretching of Henderson's table. Both come from a mesh alone with no ground truth, so
+they are cheap, and both are real signals: a papyrus sheet is developable and does not stretch.
+They are out of scope because they judge the flattened chart rather than where the surface sits in
+the volume, and every claim this suite makes is about placement against independent evidence. A
+run can be perfectly developable and one winding out of place. Adding them would widen the tool
+and blur that claim; they belong in a later version that says plainly they answer a different
+question.
+
+Later maybe: CI-friendly tiny fixtures, a `--compare` HTML report, ScrollFiesta adapter if formats
+differ, and a cross-check of the distance engine against the paper's reference mesh.
