@@ -24,7 +24,7 @@
 | within tau = 6.0 | 72.9% |
 | sheet consistency (mean / min) | 0.439 / 0.064 |
 | single-winding consistency (mean / min) | 0.427 / 0.064 |
-| winding agreement | not computed: the scored evidence carries no winding.tif, so winding identity was not checked |
+| winding agreement | not computed: no scored patch carried a usable winding grid, so winding identity was not checked |
 
 ## Evidence leakage vs fit inputs
 

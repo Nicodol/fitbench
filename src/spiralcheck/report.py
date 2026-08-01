@@ -63,7 +63,7 @@ def _winding_agreement_cell(aggregate: dict) -> str:
     # was not computed, and why. The JSON keeps null for machines.
     wa = aggregate.get("mean_winding_agreement")
     if wa is None:
-        return ("not computed: the scored evidence carries no winding.tif, "
+        return ("not computed: no scored patch carried a usable winding grid, "
                 "so winding identity was not checked")
     return f"{wa:.3f}"
 

@@ -260,6 +260,10 @@ MUTATIONS = [
      "    if scores is not None:",
      "    if scores is not None and False:",
      "stop purging stale overlays"),
+    ("report.py",
+     '                    ["winding agreement", _winding_agreement_cell(aggregate)],',
+     '                    ["winding agreement", str(aggregate["mean_winding_agreement"])],',
+     "render a missing winding-agreement metric as a bare None again"),
 ]
 
 

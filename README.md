@@ -82,12 +82,12 @@ Four external-style review rounds (adversarial code review, claims audit against
 artifacts, upstream check, test-quality audit writing its own counter-mutations)
 shaped v0.2 onwards: the evidence-leakage audit, the drift-aware sheet
 consistency, the family-grouped split with geometry-hash twin merging, and a
-regression harness kept at 53/53 injected bugs detected. Each round attacked the
+regression harness kept at 54/54 injected bugs detected. Each round attacked the
 previous round's fixes and found more; the fourth corrected the premise of this
 very README, named the villa prior art it had failed to cite, and left one
 measured defect frozen in the sheet-consistency contract rather than patched.
 VALIDATION.md records what each round caught, including the times it was our own
-published numbers that were wrong, and section 3 says plainly what 53/53 does
+published numbers that were wrong, and section 3 says plainly what 54/54 does
 and does not mean.
 
 ## Acknowledgments

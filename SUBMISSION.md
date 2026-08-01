@@ -85,9 +85,9 @@ QuadSurfaces with `winding_column_ranges`); producer-agnostic by design.
   and reported as collapsed, not as a false crossing; a planted leaked patch
   is caught by the leakage profile. Null controls are bounded by computed
   chordal-discretization limits, not magic numbers.
-- The tests are themselves audited by mutation (53 injected bugs, all
+- The tests are themselves audited by mutation (54 injected bugs, all
   detected, a CI job on three OSes; two further candidates were left out as
-  equivalent mutants rather than counted). 53/53 is a regression harness, not
+  equivalent mutants rather than counted). 54/54 is a regression harness, not
   a claim of exhaustiveness: independent review rounds kept writing
   counter-mutations that survived on first contact, and VALIDATION.md section
   3 counts them and says where the suite is thin. Measured sensitivity floors

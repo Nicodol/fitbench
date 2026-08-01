@@ -66,7 +66,7 @@ identifies the failure mode.
 deliberate bugs one at a time and requires the suite to fail on each, then
 pass unmutated. The list covers the geometry engine, the metrics and their
 published aggregates, the CLI glue, the intrinsic checks, and the split,
-audit and leakage code. **Result: 53/53 detected.**
+audit and leakage code. **Result: 54/54 detected.**
 
 Two candidate mutations were deliberately left out of the list rather than
 counted, because the suite cannot kill them and a mutation that cannot be
@@ -76,7 +76,7 @@ every reachable configuration, and disabling the split's self-check cannot
 change any output, since the merge makes a poisoned split unreachable by
 construction. Both are noted in `scripts/mutation_check.py`.
 
-**What 53/53 does and does not mean, stated once so it is not read as more
+**What 54/54 does and does not mean, stated once so it is not read as more
 than it is.** That list is a regression harness: it pins bugs we already know
 how to describe, and it is what keeps them from coming back. It is not a claim
 of exhaustiveness, and no mutation score is. Every independent review round run
@@ -96,10 +96,12 @@ suite is strong and weak is:
   constants), the continuous winding coordinate and the sheet topology, and the
   split protocol.
 - *Thin*: `report.py`, whose Markdown rendering is asserted mostly by substring
-  presence; the CLI's default option values, which every test passes
-  explicitly; the z axis of the intrinsic localization (theta is checked, z is
-  not); several intrinsic thresholds that no fixture straddles; and the
-  null control on the inflated-gap indicator.
+  presence (the winding-agreement cell is now pinned end to end, the rest is
+  not); `compare`, which silently drops a metric that is null on either side
+  instead of saying so; the CLI's default option values, which every test
+  passes explicitly; the z axis of the intrinsic localization (theta is
+  checked, z is not); several intrinsic thresholds that no fixture straddles;
+  and the null control on the inflated-gap indicator.
 
 Those are gaps in test coverage, not known wrong values: the published numbers
 in sections 4 to 6 were re-derived from the raw artifacts, the shipped
@@ -248,7 +250,8 @@ ones.
 
 Split manifests shipped: the family-grouped
 [`examples/PHercParis4_v2_split_manifest.json`](examples/PHercParis4_v2_split_manifest.json)
-(recommended for new fits) and the original
+(recommended for new fits: 4,922 patches, 1,133 held out, 3,789 on the fit
+side, 1,532 families) and the original
 [`examples/PHercParis4_v1_split_manifest.json`](examples/PHercParis4_v1_split_manifest.json)
 (name-level, seed 20260731, 4,922 patches, 985 held out): the demo runs below
 consumed the v1 fit side, and their leakage is neutralized by the geometric
@@ -257,7 +260,8 @@ audit rather than by re-fitting.
 ## 6. Demonstration on two real fits (dense vs sparse inputs)
 
 Two real villa `fit_spiral` runs on PHerc. Paris 4 (z 10600-10900, consumer
-RTX 3060 Ti, identical settings and step budget), differing **in one input
+RTX 3060 Ti, identical settings and step budget, villa `scripts/spiral` at
+commit `51b8499`), differing **in one input
 switch** (`use_verified_patches`), both scored against the same 94 sealed
 patches (49,458 quad centers, scoring restricted to the fitted window).
 
@@ -307,7 +311,12 @@ the gaps**: this table aggregates differently from the one above. It is a
 point-weighted mean of per-patch values, so for a percentile metric it is the
 mean of per-patch percentiles, not the pooled percentile. The two answer
 different questions and do not have to agree; the script prints the same
-warning.
+warning. The populations differ too, by a hair: the aggregate above only
+admits patches with at least 8 unseen points (69 patches, 15,437 points),
+while the bootstrap resamples every patch carrying unseen points (78 patches,
+15,457). That is why within-tau reads 67.6% above and 0.675 here (0.675714 vs
+0.675422 unrounded, re-derived from the shipped reports): same fraction, two
+denominators, both correct.
 
 | metric (point-weighted mean of per-patch values) | dense | sparse | gap, dense - sparse | 95% interval |
 |---|---|---|---|---|
@@ -456,7 +465,7 @@ The villa satisfaction rows are verbatim log excerpts:
 ```bash
 uv sync --group dev
 uv run pytest -q                      # 104 tests + 1 strict xfail (a frozen known limit)
-uv run python scripts/mutation_check.py   # 53/53 injected bugs must be detected
+uv run python scripts/mutation_check.py   # 54/54 injected bugs must be detected
 uv run python scripts/real_data_smoke.py <verified_patches_dir> 500
 uv run python scripts/real_overlap_check.py <verified_patches_dir> 150
 ```
