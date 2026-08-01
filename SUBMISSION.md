@@ -89,7 +89,7 @@ QuadSurfaces with `winding_column_ranges`); producer-agnostic by design.
   detected, a CI job on three OSes; two further candidates were left out as
   equivalent mutants rather than counted). Measured sensitivity floors say
   how small a defect each metric still catches.
-- The whole package went through three independent-style review rounds
+- The whole package went through four independent-style review rounds
   (adversarial code review, claims audit against artifacts, upstream check,
   test-quality audit writing its own counter-mutations), each attacking the
   previous round's fixes. Every finding, including the ones that were in our
@@ -162,32 +162,45 @@ published gain came from one mis-rated patch.
 The pairing this suite rests on is not our invention, and the paper behind
 `fit_spiral` states it: Henderson, *Virtually Unrolling the Herculaneum Papyri
 by Diffeomorphic Spiral Fitting* (arXiv:2512.04927), scores a fit against a
-hand-made reference mesh with a winding-indexed metric (winding jump fraction,
+hand-made reference mesh with winding-indexed metrics (winding jump fraction,
 mean radial winding distance) next to a distance metric (chamfer), plus two
-intrinsic sheet-quality metrics. The blind-spot measurement above is why that
-pairing is mandatory rather than a matter of taste.
+intrinsic sheet-quality metrics. Two of the five are implemented, in
+`evaluate_wrt_gp`, inside the fitting loop and on GPU. Older still,
+ThaumatoAnakalyptor's `mesh_quality.py` has scored an output mesh against a
+ground-truth mesh aligned by winding angle since 2024.
 
-What is missing is the tooling and the portability. The public repository ships
-the fitting method, not the metrics, and no route to reproduce the paper's
-table; the reference mesh it scores against is, in the paper's own account,
-hundreds of hours of annotation covering one region of one scroll. spiralcheck
-takes the same pairing to the sparse verified patches that already exist for
-every scroll, seals them with a split protocol, measures the leakage instead of
-assuming it, and scores any producer's finished run folder on a CPU. Two of the
-paper's five metrics, angular defect and stretching, judge the flattened chart
-rather than its placement in the volume; they are out of scope here and
-DESIGN.md says why.
+So the honest claim is narrow. What no existing tool does is score a finished
+run folder, from its output surfaces alone, against verified patches withheld
+from that fit, on a CPU, with the leakage between "held out" and "consumed"
+measured rather than assumed — and that leakage audit is the part with no
+counterpart anywhere: 54.8% of the naively sealed evidence turned out to lie
+within half a voxel of an input the fit had consumed. The reference mesh both
+prior tools need is hundreds of hours of annotation covering one region of one
+scroll; sparse verified patches exist wherever segmentation is under way.
 
-Five community QA tools landed in July 2026, none scoring whole-fit output
-against withheld evidence: sheetcheck (surface-against-CT geometry, which
-explicitly abandons the global winding coordinate), winding-ruler (the marginal
-value of winding annotations; its finding that high-concordance automatic
-constraint generators still degrade the fit is an independent argument for
-output-side evaluation, and its Paris 4 pitch matches the one assumed here),
-ScrollAnchor (discontinuity review candidates), herculaneum-scroll-tools
-(CT-consistency audit and constraint verification), and khj1222's held-out
-harness for ink detection. windcheck remains the closest in spirit, on
-individual traced segments rather than whole fits.
+Two of the paper's five metrics, angular defect and stretching, judge the
+flattened chart rather than its placement; they are out of scope, and DESIGN.md
+says why. A third, MRWD, has no analogue here at all, because it needs the
+absolute winding index of the evidence and 0 of the 4,922 Paris 4 verified
+patches carry a `winding.tif`. The consequence is stated there rather than left
+to be found: this suite catches a winding error that cuts across a held-out
+patch, not a uniform offset over a region wider than a patch.
+
+Seven community QA efforts landed in the four weeks to 1 August 2026, none
+scoring whole-fit output against withheld patches, but two now sharing this
+suite's method and worth naming for that reason: constraint-gauge (criteria
+hashed before measurement, and provenance declared as independent /
+shared-parent / in-sample — leakage accounting as a publication rule, on the
+input side) and TIFXYZ Doctor (frozen 709-patch benchmark, planted defects, 128
+byte-identical null controls, declared out-of-scope defect class). Then
+sheetcheck (local surface-against-CT geometry, whose warning about azimuthal
+winding coordinates applies to our intrinsic checks), winding-ruler (the
+marginal value of winding annotations, and the first collection-wide pitch
+atlas, whose headline is that pitch is a distribution rather than a constant),
+herculaneum-scroll-tools (CT-consistency audit of published predictions, the
+nearest anyone comes to this object), ScrollAnchor (discontinuity review
+candidates), and khj1222's held-out harness for ink. windcheck remains the
+closest in spirit, on individual traced segments rather than whole fits.
 
 **Links**
 

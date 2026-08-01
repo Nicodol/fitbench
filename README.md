@@ -100,18 +100,27 @@ and does not mean.
 - The evaluation protocol for this task was published with the method: Paul Henderson,
   [*Virtually Unrolling the Herculaneum Papyri by Diffeomorphic Spiral Fitting*](https://arxiv.org/abs/2512.04927),
   which scores a fit against a hand-made reference mesh with a winding-indexed metric and a
-  distance metric side by side. That pairing is the standard this suite follows; what it adds is a
-  sealed split over the sparse verified patches that exist for every scroll, a measured leakage
-  audit, and a run folder as the unit of work. DESIGN.md maps metric to metric and names the two
-  of its five we deliberately do not implement.
-- [windcheck](https://github.com/joe-carr-data/windcheck) pioneered label-free consistency checking
-  for individual traced segments; spiralcheck targets whole-scroll fit runs and run-to-run comparison.
+  distance metric side by side, and implements two of its five metrics inside the fitting loop.
+  DESIGN.md maps metric to metric, says which of them this suite has no analogue for and why, and
+  states what is left over: a post-hoc entry point, a sealed split, and a measured leakage audit.
+- [`mesh_quality.py`](https://github.com/schillij95/ThaumatoAnakalyptor/blob/main/ThaumatoAnakalyptor/mesh_quality.py)
+  in ThaumatoAnakalyptor has scored an output mesh against a ground-truth mesh, aligned by winding
+  angle around the umbilicus, since 2024. It is the closest prior art to the pairing used here.
+- [windcheck](https://github.com/joe-carr-data/windcheck) is a label-free, deterministic
+  self-intersection validator for individual traced segments; spiralcheck targets whole-scroll fit
+  runs and run-to-run comparison.
 - Neighbouring work from July 2026, none of which scores whole-fit output against withheld patches,
   and all of which are worth reading first:
-  [sheetcheck](https://github.com/DomRusso2/sheetcheck) (local surface-against-CT geometry),
+  [constraint-gauge](https://github.com/pscamillo/constraint-gauge) (sealed, hashed criteria and
+  provenance declaration applied to winding-constraint generators — the same discipline as this
+  suite, on the input side),
+  [TIFXYZ Doctor](https://github.com/aviad12g/tifxyz-doctor) (frozen patch benchmark, planted
+  defects, byte-identical null controls),
+  [sheetcheck](https://github.com/DomRusso2/sheetcheck) (local surface-against-CT geometry, and a
+  warning about azimuthal winding coordinates that applies to our intrinsic checks),
   [winding-ruler](https://github.com/pscamillo/winding-ruler) (the marginal value of winding
-  annotations, and a collection-wide pitch atlas that independently confirms the Paris 4 pitch used
-  here), ScrollAnchor (discontinuity review candidates), and
+  annotations, and the first collection-wide pitch atlas), ScrollAnchor (discontinuity review
+  candidates), and
   [herculaneum-scroll-tools](https://github.com/axiosdevs/herculaneum-scroll-tools) (CT-consistency
   audit, constraint verification).
 - The vesuvius-sheet-tools thread's public PHerc1218 input pack is a candidate second test case.

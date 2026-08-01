@@ -68,6 +68,17 @@ them is not credible:
 - **`windcheck`** (external, as rebuilt in July 2026) is a deterministic self-intersection
   validator for *individual traced surfaces*, label-free and threshold-free, from mesh geometry
   alone.
+- **[`mesh_quality.py`](https://github.com/schillij95/ThaumatoAnakalyptor/blob/main/ThaumatoAnakalyptor/mesh_quality.py)**
+  in ThaumatoAnakalyptor (Julian Schilliger, 2024) is the closest prior art to the distance +
+  winding pairing, and it predates this suite by two years. Its argparse description is "Calculate
+  the Quality statistic of a 3D mesh and a Ground Truth 3D Mesh": it takes `--input_mesh`,
+  `--gt_mesh` and `--umbilicus_path`, aligns the two by winding angle around the umbilicus
+  (`align_winding_angles`, `find_closest_triangles_same_winding`), and reports the overlapping
+  vertex fraction and the mean distance of overlapping vertices to the ground truth. Post hoc, CLI,
+  output-against-independent-reference. It is undocumented in that repository's README, which is
+  how it went unnoticed here for as long as it did. What it does not carry: a split protocol, a
+  leakage audit, sparse-patch evidence, or run-to-run comparison — and like the paper, it assumes a
+  dense reference mesh is available.
 
 What is left uncovered, and is what this suite does: scoring a whole-scroll winding family, post
 hoc and CPU-only, against verified patches withheld from the fit, with the leakage between "held
@@ -82,60 +93,104 @@ manually created reference mesh spanning about thirty windings of PHerc. Paris 4
 ThaumatoAnakalyptor, and ablates the losses:
 
 - **WJF**, winding jump fraction: "how often the ground-truth surfaces cross between different
-  windings of our spiral". The failure that sheet consistency and winding agreement target here,
-  measured from the other side.
+  windings of our spiral". Sheet consistency here targets the same failure, measured from the
+  other side: a held-out patch that lands on more than one sheet.
 - **MRWD**, mean radial winding distance: "the mean over windings, of distance from the K-th
-  spiral winding to the K-th ground-truth winding". Winding-indexed, so it is not pitch-blind.
+  spiral winding to the K-th ground-truth winding". Winding-indexed against an absolute reference,
+  so it sees a uniform one-winding offset. **This suite has no analogue**, and the reason is
+  stated rather than buried: it would need the absolute winding index of the evidence, and 0 of
+  the 4,922 Paris 4 verified patches carry a `winding.tif`.
 - **ChD**, "the one-directional chamfer distance from the ground-truth surface to the predicted
   surface". Our distance percentiles, reduced to a mean.
 - **AD**, mean angular defect over mesh vertices, and **Str**, in-sheet stretching: intrinsic sheet
   quality. This suite measures neither (see Non-goals).
 
-The first three are the ideas this suite is built on, which is a confirmation and not a problem:
-carrying a winding-indexed measure next to a distance measure is the published standard for this
-task, not an invention of ours, and the pitch-blindness result below is the reason that pairing is
-mandatory rather than tasteful.
+So one of the five has a direct analogue here, one has a partial one, and three do not. That is
+worth saying plainly, because it bounds this suite honestly: **spiralcheck detects a winding error
+that cuts across a held-out patch, not a uniform offset over a region wider than any single
+patch.** Against the latter the paper's reference mesh remains the only instrument, which makes
+adding `winding.tif` to the verified corpus the single most useful thing the project could do for
+post-hoc geometric evaluation.
 
-What does not exist is the tooling. The public repository
+The tooling is where the gap is, and it is narrower than "none". The public repository
 ([pmh47/spiral-fitting](https://github.com/pmh47/spiral-fitting), `master`, last pushed December
-2025) ships the fitting method; its README says the ground-truth mesh is used "only for
-visualisation and evaluation" and points at a path on the challenge servers, and it contains no
-metric implementation and no route to reproduce the paper's table. Nor is the protocol portable as
-stated: it is scored against a dense reference mesh covering one region of one scroll, described
-in the paper as hundreds of hours of human annotation.
+2025) implements two of the five: `evaluate_wrt_gp` returns `frac_gp_jumping_windings` (WJF) and
+`mean_radial_winding_distance` (MRWD). But it computes them **inside the fitting loop**, on GPU,
+against a reference mesh on the challenge servers; the chamfer distance and the two intrinsic
+metrics are not implemented at all, and there is no route to reproduce the paper's table. What is
+missing is the post-hoc entry point: nothing scores a finished run folder, and nothing scores
+surfaces from a producer that has no such loop. Nor is the protocol portable as stated — it is
+scored against a dense reference mesh covering one region of one scroll, described in the paper as
+hundreds of hours of human annotation.
 
-spiralcheck takes the same pairing to the evidence that already exists for every scroll — sparse
-verified patches — seals them by protocol, measures the leakage rather than assuming it, and runs
-on any producer's finished run folder without a GPU. Where that reference mesh is available it is
-the stronger instrument, and the honest next validation step for this suite: scoring our distance
-engine against its chamfer distance would check our engine against an independent implementation.
+spiralcheck takes the surviving pairing to the evidence that exists wherever segmentation is under
+way — sparse verified patches, 4,922 on Paris 4, the only scroll this suite has run on to date —
+seals them by protocol, and measures the leakage between "held out" and "consumed" rather than
+assuming it. That leakage audit is the part with no counterpart anywhere below or above: on the
+demo runs, 54.8% of the naively sealed evidence turned out to lie within half a voxel of an input
+the fit had consumed, through overlapping patch selections that no name- or hash-level split can
+see. Where the paper's reference mesh exists — about thirty windings of one region, hundreds of
+hours, hosted rather than redistributable — it measures something sparse patches cannot, and
+cross-checking our distance engine against its chamfer distance is the next honest validation step
+for this suite.
 
 ### The July 2026 wave of community QA tools
 
-Five independent QA or evaluation tools appeared in the four weeks to 1 August 2026. None takes
-this suite's object, and the boundaries are worth stating precisely, because they are what would
-justify a sixth:
+Seven independent QA or evaluation efforts appeared in the four weeks to 1 August 2026, which is
+itself the most useful fact in this section: evaluation stopped being a gap and became a crowd.
+None of them takes this suite's object — scoring a whole fit's output surfaces against verified
+patches withheld from that fit — but two of them now share its *method*, and the boundaries are
+worth stating precisely so a reader can check that claim rather than take it:
 
-- **[sheetcheck](https://github.com/DomRusso2/sheetcheck)** (27 July) measures traced surfaces
-  against the CT locally: support between air-gap and papyrus intensity, offset to the nearest
-  sheet centre, planarity. It deliberately drops the global winding coordinate ("azimuth about a
-  fitted scroll axis is not a usable winding coordinate") and retracts its own pitch column as
-  unreliable. It answers "is this surface on papyrus", never "is it on the right winding".
-- **[winding-ruler](https://github.com/pscamillo/winding-ruler)** (31 July) measures winding
-  *evidence*: the marginal effect of human winding annotations on a fit by ablation, a calibrated
-  pairwise winding estimator against held-out human labels, and a collection-wide pitch atlas. Its
+- **[sheetcheck](https://github.com/DomRusso2/sheetcheck)** measures traced surfaces against the CT
+  locally: support between air-gap and papyrus intensity, offset to the nearest sheet centre,
+  planarity. It removes every quantity that needed a global winding coordinate, having measured
+  that on PHerc1667 the radius wanders about a fitted spiral by roughly four times the wrap
+  spacing, and it retracts its own pitch column after finding it biased on real data despite a
+  clean synthetic validation. That warning applies directly here: the *intrinsic* checks in this
+  suite bin by azimuth around the umbilicus and have been validated only on a synthetic spiral and
+  one Paris 4 window. The held-out side escapes it, because sheet consistency follows the
+  producer's grid columns rather than azimuth.
+- **[constraint-gauge](https://github.com/pscamillo/constraint-gauge)** is the closest neighbour by
+  method and the most important entry here. It calibrates winding-constraint generators against
+  human annotations with criteria "written, reviewed and hashed before any external generator was
+  measured", and it requires every subject to declare its relationship to the ground truth as
+  `independent`, `shared-parent` or `in-sample` — leakage accounting as a publication rule, applied
+  by its author to his own estimator. Sealed criteria and provenance declaration are exactly the
+  discipline this suite applies. It scores *input constraints*, winding numbers per point; this
+  suite scores *output surfaces*. The methods converged independently, which is worth more as
+  corroboration than as competition.
+- **[TIFXYZ Doctor](https://github.com/aviad12g/tifxyz-doctor)** (villa PR #1278) freezes a
+  benchmark over 709 official human-reviewed PHercParis4 patches with 1,920 synthetic cases,
+  plants normal-offset defects, reports 128 byte-identical null controls, and declares the defect
+  class it misses as out of scope. Planted defects plus null controls plus declared limits is the
+  same validation contract used here, arrived at independently and published first.
+- **[winding-ruler](https://github.com/pscamillo/winding-ruler)** measures winding *evidence*: the
+  marginal effect of human winding annotations on a fit by ablation, a calibrated pairwise winding
+  estimator against held-out human labels, and the first collection-wide winding-pitch atlas. Its
   fit-quality readout is still villa's satisfaction, and it does not score output surfaces against
-  withheld patches. Two of its results matter here: three automatic constraint generators degrade
-  the fit despite agreeing well with human labels, which is an independent argument for measuring
-  outputs rather than inputs; and its Paris 4 pitch, about 18.8 working-grid voxels, independently
-  matches the pitch the blindness control assumes.
-- **ScrollAnchor** (villa PR #1293, 31 July) surfaces suspicious discontinuities in reconstructed
-  surfaces as review candidates, explicitly "not as confirmed sheet skips".
-- **[herculaneum-scroll-tools](https://github.com/axiosdevs/herculaneum-scroll-tools)** (29 July)
-  audits published surface predictions against the CT (phantom voxels where the masked scan reads
-  zero) and ships a winding-constraint annotator with a geometric verifier. Volume- and input-side.
-- **khj1222's held-out validation harness** (July) applies the same held-out discipline to ink
-  detection rather than geometry.
+  withheld patches. Its most useful result here is that three progressively better constraint
+  generators all degrade the fit while a calibrated estimator recovers human labels at 93% on
+  adjacent pairs; its author identifies a root cause per generator, so no general law is claimed
+  here either, only the observation that input-side agreement did not predict output-side quality
+  in those three cases. Its headline finding is that winding pitch is a distribution and not a
+  constant — Paris 4 alone spans 134 to 259 µm between quartiles — which is a caution this suite
+  should absorb rather than a confirmation of anything it assumes: the pitch-blindness control
+  displaces evidence by a multiple of the median pitch *of the fit under test* (20.31 vox on the
+  dense demo run, 19.44 on the sparse one), a property of that fit, not of the scroll.
+- **[herculaneum-scroll-tools](https://github.com/axiosdevs/herculaneum-scroll-tools)** audits
+  published surface predictions against the CT — phantom positives where the masked scan reads
+  exactly zero — and ships a winding-constraint annotator with a geometry report. The audit is
+  output-side against independent evidence, which is the nearest anyone comes to this suite's
+  object; the evidence is the scan itself rather than withheld patches, and the question is
+  "is this voxel inside the scroll" rather than "is this surface on the right winding".
+- **ScrollAnchor** (villa PR #1293, open, docs-only) surfaces suspicious discontinuities in
+  reconstructed surfaces as review candidates, explicitly "not as confirmed sheet skips".
+- **khj1222's held-out validation harness** applies the same held-out discipline to ink detection
+  rather than geometry.
+
+Dates are deliberately absent: repository creation, last push and PR date disagree by up to two
+weeks for several of these, and no ordering claim here depends on them.
 
 ## Operating point
 
@@ -387,13 +442,12 @@ the audit: the audit polices the tests, including the new ones.
 Ink-based anything, VC3D plugin, GPU, fixing fits (we only measure).
 
 Deliberately excluded although standard: **intrinsic sheet quality**, the angular defect and
-in-sheet stretching of Henderson's table. Both come from a mesh alone with no ground truth, so
-they are cheap, and both are real signals: a papyrus sheet is developable and does not stretch.
-They are out of scope because they judge the flattened chart rather than where the surface sits in
-the volume, and every claim this suite makes is about placement against independent evidence. A
-run can be perfectly developable and one winding out of place. Adding them would widen the tool
-and blur that claim; they belong in a later version that says plainly they answer a different
-question.
+in-sheet stretching of Henderson's table. Both are real signals — a papyrus sheet is developable
+and does not stretch — and both come from a mesh alone with no ground truth. They are out of scope
+because they judge the flattened chart rather than where the surface sits in the volume, and every
+claim this suite makes is about placement against independent evidence. A run can be perfectly
+developable and one winding out of place. Adding them would widen the tool and blur that claim;
+they belong in a later version that says plainly they answer a different question.
 
 Later maybe: CI-friendly tiny fixtures, a `--compare` HTML report, ScrollFiesta adapter if formats
 differ, and a cross-check of the distance engine against the paper's reference mesh.
