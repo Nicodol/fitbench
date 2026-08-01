@@ -293,6 +293,23 @@ carries per patch rather than as a total.
 | sheet consistency (mean) | 0.40 | 0.33 |
 | normal agreement p90 (pooled over points) | 49.9 deg | 48.9 deg |
 
+One input channel is shared rather than withheld, measured here so the claim
+above stays exact. Both runs also consume the same three winding-annotation
+point collections (719 points, manually clicked in VC3D; the files carry
+human-cadence timestamps and the annotator-tool collection names). Those
+annotations lie on the papyrus sheet, so some run along surfaces the sealed
+patches cover: of the 51,679 sealed vertices in the window, 6 (0.01%) lie
+within 2 vox of an annotation point, 70 (0.14%) within tau = 6, and 385
+(0.74%) within 20. By construction the channel is identical for the two runs,
+so it cannot favor either side of the comparison, and it is invisible to the
+unseen filter, which measures distance to input *patches* only (DESIGN.md
+names that limit). "Points neither run could have seen" therefore holds
+exactly for the patch channel, and for the annotation channel to within the
+fractions above. The derived collection that would genuinely break this
+(`patch-overlap-pcls.json`, built from patch overlaps upstream) is consumed
+by none of the runs scored in this document, and should stay out of any
+future one.
+
 Every spiralcheck row above is the same 15,437 points on both sides. villa's
 other satisfaction channel is not, and is therefore quoted separately rather
 than as a row: satisfied unattached-pcl points are 211/385 (54.8%) for the
@@ -459,6 +476,53 @@ uv run python scripts/bootstrap_ci.py \
 The villa satisfaction rows are verbatim log excerpts:
 [`examples/real_run_smoke8_villa_metrics.txt`](examples/real_run_smoke8_villa_metrics.txt),
 [`examples/real_run_sparse2_villa_metrics.txt`](examples/real_run_sparse2_villa_metrics.txt).
+
+## 7. Second scroll case study: a community parity fit of PHerc1218
+
+Honest scope first: this is a **feasibility case study**, not a held-out
+evaluation. PHerc1218 has no human-verified patches yet, and the review round
+summarized below is what established that the machine evidence available
+cannot play that role.
+
+The run. [vesuvius-sheet-tools](https://github.com/IyanDopico/vesuvius-sheet-tools)
+ships a pinned reproduction of its published PHerc1218 window fit
+(`reproduce/spiral_fit_window.py`: the IyanDopico/villa fork at `61bd95c`
+carrying the #1207 fix, input pack at `3fd238c`, z 9700-10500, 30k steps,
+seed 1, PCL-only config). Wrapped in our session guardrails on a Kaggle T4 it
+completed in 24 minutes and **passes every criterion of that repository's
+reproduction gate**: `fitting 1 patches`; seed patch 100% satisfied (gate
+>= 97); relative windings 972/1,002 = 97.0% (>= 94); same windings
+630/644 = 97.8% (>= 91); and the fitted median pitch, measured by this
+suite's intrinsic check, 20.17 grid vox = 10.09 L1 vox, inside their
+10.1 +/- 0.5 band, independently recovering the 172.8 um physical pitch they
+measured. The pack, runner and gate are IyanDopico's work with pscamillo's
+parity fixes (the pinned commit *is* the `unattached_pcl_num_per_step` fix).
+
+What this demonstrates for spiralcheck: the loader read another producer's
+pack as-is (patches with no mask and no winding grid), scoring ran unmodified
+and CPU-only, re-scoring is bit-identical, and the intrinsic block recovered
+a physically confirmed pitch on a scroll this suite had never seen. Reports:
+[`examples/real_run_pherc1218_report.json`](examples/real_run_pherc1218_report.json)
+(+ `.md`).
+
+What it deliberately does not claim. The only candidate evidence was
+`seed-z4704`, the sole `main`-pack patch absent from the pinned pack whose z
+extent intersects the window. Scored against it: 21 unseen points, distance
+p50 4.85 / p90 7.60 / max 10.72 vox, within tau 71.4%, sheet consistency
+0.238, leakage-to-input-patches 0.0%. Our own review round then established
+that this cannot be read as held-out evaluation: the patch is
+machine-synthesized from the same stitched instance labels as the fit's
+constraints, from the very instance (global id 206505) whose next slab up is
+the fit's anchor patch (their boundary vertices touch at 0.83 vox); the fit
+consumed seven relative-winding constraints on that instance; and the 0.0%
+leakage figure is exactly the audit's documented blind spot (DESIGN.md): it
+certifies distance to declared input patches, nothing more. 21 non-independent
+machine points against a reference whose own down-roll error is
+uncharacterized support no verdict in either direction. The observation worth
+keeping: the producer's satisfaction gate (97-100%) and this suite's sheet
+consistency (0.238) tell opposite stories that the available evidence cannot
+arbitrate. Independent evaluation of this scroll starts when human-verified
+patches exist for it.
 
 ## Reproduce
 
