@@ -87,8 +87,11 @@ QuadSurfaces with `winding_column_ranges`); producer-agnostic by design.
   chordal-discretization limits, not magic numbers.
 - The tests are themselves audited by mutation (53 injected bugs, all
   detected, a CI job on three OSes; two further candidates were left out as
-  equivalent mutants rather than counted). Measured sensitivity floors say
-  how small a defect each metric still catches.
+  equivalent mutants rather than counted). 53/53 is a regression harness, not
+  a claim of exhaustiveness: independent review rounds kept writing
+  counter-mutations that survived on first contact, and VALIDATION.md section
+  3 counts them and says where the suite is thin. Measured sensitivity floors
+  say how small a defect each metric still catches.
 - The whole package went through four independent-style review rounds
   (adversarial code review, claims audit against artifacts, upstream check,
   test-quality audit writing its own counter-mutations), each attacking the

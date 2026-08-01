@@ -194,6 +194,12 @@ weeks for several of these, and no ordering claim here depends on them.
 
 ## Operating point
 
+- Units: all distances in this suite are **full-resolution voxels of the scan grid** the
+  surfaces are expressed in. For PHerc. Paris 4 (every number in this repo) one voxel is
+  **9.6 um**: `voxel_size_um = 9.6` in the PHercParis4 header of villa's `fit_spiral.py`,
+  both at the commit our demo runs pinned (`51b8499`) and at current main. So tau = 6 vox
+  is 57.6 um, and the demo's p99 gap (17.7 vs 246 vox) is 0.17 vs 2.36 mm; pitch-based
+  figures quoted by the community (e.g. 187.3 um) divide by 9.6 to compare.
 - Input: a run's winding surfaces. Layouts supported:
   - `out/<run>/meshes/fitted[_<tag>]/wNNN[_<tag>]/` and `wNNN_spliced[_<tag>]/` directories (one
     `tifxyz` per winding, as `fit_spiral` writes them; the tag comes from `FIT_SPIRAL_RUN_TAG`);
@@ -410,7 +416,9 @@ the audit: the audit polices the tests, including the new ones.
   grids are uncompressed): `imagecodecs` is a hard dependency to read them all.
 - Loader validated on 500/500 randomly sampled complete patch dirs. The shape
   statistics below were measured on the partial sync of 2026-07-26 (3,272 of
-  4,923 listed dirs) and are kept as a dated snapshot, not a reproducible
+  the 4,922 patch dirs; the raw listing shows 4,923 directories because it
+  includes a `backups/` dir with no `meta.json`, which no count in this repo
+  treats as a patch) and are kept as a dated snapshot, not a reproducible
   claim: grids 4x4 to 1056x460 (median ~35x44), valid-vertex fraction median
   1.00, z spans 416..18,255, ~6% with `mask.tif`. On the complete set,
   **0/4,922 patches carry `winding.tif`**, so the winding-agreement metric is

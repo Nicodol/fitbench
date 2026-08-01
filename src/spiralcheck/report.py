@@ -57,6 +57,17 @@ def overlay_slice(
     plt.close(fig)
 
 
+def _winding_agreement_cell(aggregate: dict) -> str:
+    # A bare "None" reads as "no disagreement", i.e. as a pass, while this is
+    # the one metric that can see a whole-winding error. Say plainly that it
+    # was not computed, and why. The JSON keeps null for machines.
+    wa = aggregate.get("mean_winding_agreement")
+    if wa is None:
+        return ("not computed: the scored evidence carries no winding.tif, "
+                "so winding identity was not checked")
+    return f"{wa:.3f}"
+
+
 def _md_table(rows: list[list[str]], header: list[str]) -> str:
     out = ["| " + " | ".join(header) + " |", "|" + "---|" * len(header)]
     out += ["| " + " | ".join(r) + " |" for r in rows]
@@ -99,7 +110,7 @@ def write_report(
                      f"{aggregate['mean_sheet_consistency']:.3f} / {aggregate['min_sheet_consistency']:.3f}"],
                     ["single-winding consistency (mean / min)",
                      f"{aggregate['mean_single_winding_consistency']:.3f} / {aggregate['min_single_winding_consistency']:.3f}"],
-                    ["winding agreement", str(aggregate["mean_winding_agreement"])],
+                    ["winding agreement", _winding_agreement_cell(aggregate)],
                 ],
                 ["metric", "value"],
             ),
