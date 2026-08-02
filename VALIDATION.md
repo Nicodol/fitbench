@@ -260,10 +260,13 @@ audit rather than by re-fitting.
 ## 6. Demonstration on two real fits (dense vs sparse inputs)
 
 Two real villa `fit_spiral` runs on PHerc. Paris 4 (z 10600-10900, consumer
-RTX 3060 Ti, identical settings and step budget, villa `scripts/spiral` at
-commit `51b8499`), differing **in one input
+RTX 3060 Ti, identical settings and step budget), differing **in one input
 switch** (`use_verified_patches`), both scored against the same 94 sealed
-patches (49,458 quad centers, scoring restricted to the fitted window).
+patches (49,458 quad centers, scoring restricted to the fitted window). (On
+the exact villa `scripts/spiral` state of these local runs, see the commit
+attribution note in section 8: the hash our notes first recorded fails a
+config-key consistency check, and section 8's cross-platform twin bounds
+whatever code-state delta remains at 0.26% relative.)
 
 For the dense run, spiralcheck's leakage audit measures that 54.8% of the sealed
 points lie within 0.5 vox of some fit-side input surface (overlapping patch
@@ -524,11 +527,72 @@ consistency (0.238) tell opposite stories that the available evidence cannot
 arbitrate. Independent evaluation of this scroll starts when human-verified
 patches exist for it.
 
+## 8. The quality scale: 4x the step budget, on identical sealed evidence
+
+The question section 6 could not answer: does a *better* fit score better?
+Two fresh `fit_spiral` runs on the section 6 window, this time twins by
+construction: same Kaggle T4, same docker image (pinned by sha256), same
+seed, same 162-key override set (reconstructed from the reference run's
+requested-config dump and guarded by startup counters that must match the
+reference exactly, or the run kills itself), villa `scripts/spiral`
+self-hosted at commit `bb6248fe7` (per-file sha256 manifest ships with the
+input dataset), differing in **exactly one key**: `num_training_steps`,
+1,500 vs 6,000. An independent review pass diffed the two executed notebooks
+(only the step constant and cosmetic run tags differ), verified the step
+chronology in both logs (strictly monotonic to 1500/1500 and 6000/6000, a
+4.35x marginal-compute ratio for 4x the steps), and confirmed the two output
+mesh sets differ file by file.
+
+The analysis plan was fixed before any result existed: comparisons, paired
+bootstrap (20,000 draws, the same `scripts/bootstrap_ci.py --unseen`),
+**paired distance deltas as the primary criterion**, the other declared
+metrics reported with intervals but never promoted, no post-hoc metrics. The
+plan lives in a private working log; an independent review pass verified its
+git timestamp (9h50 before the first result) and that it is unchanged since.
+
+Results, in the pre-registered order, both runs scored against the same
+sealed evidence as section 6 (per-patch unseen counts identical across all
+three reports):
+
+- **Primary criterion: not met.** Paired distance deltas span zero in both
+  tails: p50 -0.41 [-0.82, +0.06] vox, p99 +0.40 [-1.40, +2.64] vox. Four
+  times the budget left the distance profile statistically unchanged on this
+  window.
+- **Declared secondary metrics: all three exclude zero, in the long run's
+  favor.** Sheet consistency +0.209 [0.141, 0.268] (0.605 vs 0.396);
+  within-tau +0.060 [0.017, 0.103] (0.735 vs 0.675); normal-agreement p90
+  16.1 degrees better [11.7, 21.4] (22.6 vs 38.7 degrees).
+- Reading: on this window the extra budget polishes sheet coherence and
+  orientation rather than raw distance. villa's own satisfaction metric
+  ranks the runs the same way (6/389 patches satisfied at 1,500 steps,
+  84/389 at 6,000): where both instruments can see, they agree, and the
+  held-out metrics see it on evidence the fit was never given.
+
+Platform bound, from the third pair: the 1,500-step twin against the
+original consumer-GPU reference run of section 6 (RTX 3060 Ti eager vs T4
+triton) agrees within **0.26% relative on every headline metric**; the
+paired bootstrap resolves platform effects of order 0.02 vox (CI up to
+~0.06 vox, significant on p50), an order of magnitude below the secondary
+gaps above.
+
+Commit attribution note, for honesty: our notes first recorded the section 6
+local runs at villa commit `51b8499`. A config-key consistency check refutes
+that hash (the reference run's requested-config dump carries keys that exist
+only in villa's [#1203, #1258) window), the exact local state remains to be
+confirmed from the original machine, and the `default_config` dict is
+byte-identical across the candidate window while the runtime modules differ
+by tens of lines. The 0.26% twin bound is what makes this residual
+uncertainty immaterial for the table above.
+
+Artifacts: `examples/real_run_cheap2_report.{json,md}`,
+`examples/real_run_quality2_report.{json,md}`, and the three bootstrap
+tables `examples/bootstrap_*.txt`.
+
 ## Reproduce
 
 ```bash
 uv sync --group dev
-uv run pytest -q                      # 104 tests + 1 strict xfail (a frozen known limit)
+uv run pytest -q                      # 105 tests + 1 strict xfail (a frozen known limit)
 uv run python scripts/mutation_check.py   # 54/54 injected bugs must be detected
 uv run python scripts/real_data_smoke.py <verified_patches_dir> 500
 uv run python scripts/real_overlap_check.py <verified_patches_dir> 150

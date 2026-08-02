@@ -78,6 +78,18 @@ end-to-end tests, loader validated on 500/500 real PHerc. Paris 4 verified
 patches, and a demonstration on two real `fit_spiral` runs (see VALIDATION.md,
 section 6).
 
+August 2026 update: the quality-scale question answered on identical sealed
+evidence (VALIDATION.md section 8): against a twin differing only in
+`num_training_steps` (1,500 vs 6,000, same seed, same code, same GPU), the
+pre-registered primary criterion (paired distance deltas) is honestly *not
+met*, while the declared secondary metrics all separate the runs decisively
+in the long run's favor (sheet consistency +0.21, within-tau +0.06, normals
+16 degrees better, every interval excluding zero), and villa's satisfaction
+metric agrees. Cross-platform reproduction of the section 6 reference within
+0.26% relative bounds the platform's contribution. Plus a second-scroll
+feasibility case study (section 7) and the measured shared-annotation
+channel (section 6).
+
 Four external-style review rounds (adversarial code review, claims audit against
 artifacts, upstream check, test-quality audit writing its own counter-mutations)
 shaped v0.2 onwards: the evidence-leakage audit, the drift-aware sheet

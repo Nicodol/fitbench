@@ -1,0 +1,12 @@
+bootstrap over 78 patches, 20000 paired draws
+values are point-weighted means of PER-PATCH numbers; for a percentile metric that is
+the mean of per-patch percentiles, which is not the pooled percentile the report
+publishes. Read this table for the direction and the stability of a gap, not as a
+restatement of the headline aggregates.
+
+metric                                           A                   B                 A - B
+sheet_consistency                0.396 [ 0.324, 0.476]   0.396 [ 0.324, 0.476]   0.000 [-0.001, 0.001]  spans zero
+dist_p50                         4.436 [ 4.031, 4.832]   4.455 [ 4.046, 4.857]  -0.020 [-0.040,-0.002]
+dist_p99                        15.398 [14.315,16.388]  15.418 [14.341,16.398]  -0.020 [-0.062, 0.017]  spans zero
+frac_within_tau                  0.675 [ 0.625, 0.726]   0.675 [ 0.626, 0.726]  -0.000 [-0.002, 0.001]  spans zero
+normal_angle_p90_deg            38.703 [31.281,46.405]  38.704 [31.289,46.386]  -0.001 [-0.063, 0.063]  spans zero

@@ -200,8 +200,8 @@ weeks for several of these, and no ordering claim here depends on them.
   *not* the older 7.91 um volume; "full-resolution" in the spiral pipeline's own
   vocabulary names this grid, as opposed to the further-downsampled lasagna volumes.
   Three independently checkable sources agree: `voxel_size_um = 9.6` in the PHercParis4
-  header of villa's `fit_spiral.py` (at our pinned demo commit `51b8499` and at current
-  main); villa's banner script addresses these very meshes at zarr level 2 of the
+  header of villa's `fit_spiral.py` (verified at `bb6248fe7`, the self-hosted parity
+  pin of VALIDATION.md section 8, at `51b8499` and at current main); villa's banner script addresses these very meshes at zarr level 2 of the
   2.400 um volume (`render_banner_spiral_gif.py`); and the `area_cm2`/`area_vx2` pairs
   carried by the dataset's patch `meta.json` imply 9.600 um. So tau = 6 vox is 57.6 um,
   and the demo's p99 gap (17.7 vs 246 vox) is 0.17 vs 2.36 mm; pitch-based figures
