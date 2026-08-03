@@ -336,6 +336,14 @@ def compare_reports(report_a: str | Path, report_b: str | Path, out_path: str | 
     """
     a = json.loads(Path(report_a).read_text(encoding="utf-8"))
     b = json.loads(Path(report_b).read_text(encoding="utf-8"))
+    for path, doc in ((report_a, a), (report_b, b)):
+        if not isinstance(doc, dict):
+            # ValueError, not TypeError: the CLI maps input mistakes to one
+            # line + exit 2 via ValueError, while TypeError stays a bug signal.
+            raise ValueError(  # noqa: TRY004
+                f"{path}: root is {type(doc).__name__}, not an object; "
+                "not a spiralcheck report.json"
+            )
     rows = []
     for section in ("heldout_aggregate", "intrinsic"):
         sa, sb = a.get(section, {}), b.get(section, {})

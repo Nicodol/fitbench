@@ -1,9 +1,11 @@
 # examples/: every shipped artifact, and how to regenerate it
 
-All artifacts here come from the runs documented in [VALIDATION.md](../VALIDATION.md)
-(sections 6, 7, 8). Everything marked *replayable* regenerates byte-identically from this
-repository alone; the reports themselves need the run meshes and the patch data (the
-paths and parameters each one used are recorded in its own `meta` block).
+All artifacts here come from the runs and protocols documented in
+[VALIDATION.md](../VALIDATION.md) (sections 5 to 8). Everything marked *replayable*
+regenerates byte-identically from this repository alone; the reports themselves need the
+run meshes and the patch data. Each report's `meta` block records its parameters, and,
+for the section 7 and 8 runs, the exact input paths; the two section 6 reports ship with
+their local paths redacted to `<meshes>`-style placeholders.
 
 ## Scored reports (`real_run_*_report.{json,md}`)
 
@@ -15,7 +17,7 @@ Five real runs, one JSON + Markdown pair each. The `.md` is a pure rendering of 
 |---|---|
 | `smoke8` | VALIDATION section 6, the dense-input demo fit (389 in-window verified patches, 1,500 steps, consumer GPU) |
 | `sparse2` | section 6, the sparse twin: same everything, 2 input patches, so the fit must interpolate |
-| `cheap2` | section 8, the 1,500-step twin re-run on Kaggle (cross-platform reproduction of smoke8 within 0.26% relative) |
+| `cheap2` | section 8, the 1,500-step twin re-run on Kaggle (reproduces smoke8 within 0.26% relative on the unseen aggregate, the numbers the repo quotes) |
 | `quality2` | section 8, the 6,000-step twin: same seed, code, data, GPU; only the step budget differs |
 | `pherc1218` | section 7, the second-scroll feasibility case study (community parity fit, PHerc. 1218) |
 

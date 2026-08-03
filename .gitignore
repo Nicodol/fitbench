@@ -8,3 +8,8 @@ build/
 *.egg-info/
 out/
 data/
+# Artifacts the README's own commands produce inside a clone.
+/demo*/
+/report/
+/cmp.md
+/demo_compare.md

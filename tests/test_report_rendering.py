@@ -47,3 +47,27 @@ def test_shipped_example_reports_carry_the_exact_helper_wording():
         text = (EXAMPLES / name).read_text(encoding="utf-8")
         assert "| winding agreement | None |" not in text, name
         assert f"| winding agreement | {MISSING_CELL} |" in text, name
+
+
+def test_render_markdown_edge_branches(tmp_path):
+    from spiralcheck.report import render_markdown
+
+    # n_bins_checked == 0 must not divide; the inflated cell drops its percent.
+    payload = {
+        "meta": {},
+        "intrinsic": {
+            "median_pitch": 10.0, "n_bins_checked": 0, "n_violations": 0,
+            "violated_bin_fraction": 0.0, "n_collapsed": 0,
+            "collapsed_bin_fraction": 0.0, "n_inflated": 3, "worst": [],
+        },
+    }
+    text = render_markdown(payload)
+    assert "| inflated gaps | 3 |" in text
+
+    # The overlay section appears only when the writer names its files, with
+    # the color-scale legend alongside.
+    assert "## Overlays" not in text
+    with_overlays = render_markdown(payload, ["overlay_z00042.png"])
+    assert "## Overlays" in with_overlays
+    assert "- overlay_z00042.png" in with_overlays
+    assert "capped at tau" in with_overlays

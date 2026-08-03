@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -42,37 +43,57 @@ def _load_umbilicus(spec: str | None):
     if spec is None:
         return None
     p = Path(spec)
+    if p.is_dir():
+        _die(f"--umbilicus: {p} is a directory; expected 'y,x' or a json file")
     if p.exists():
         try:
             data = json.loads(p.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
             _die(f"--umbilicus: {p} is not valid JSON: {exc}")
+        _check_umbilicus_shape(data, spec)
         return data  # villa umbilicus.json, or (K, 3) rows of [z, y, x]
     try:
         parts = [float(v) for v in spec.split(",")]
     except ValueError:
         parts = []
-    if len(parts) == 2:
+    if len(parts) == 2 and all(math.isfinite(v) for v in parts):
         return tuple(parts)
     _die(f"cannot interpret umbilicus spec {spec!r}: expected 'y,x' or an existing json file")
+
+
+def _check_umbilicus_shape(data, spec: str) -> None:
+    """A syntactically valid JSON of the wrong shape used to surface as a
+    traceback minutes into the run, from inside the intrinsic checks. Resolve
+    it against a dummy z now, with the real resolver, so shape mistakes die
+    early and with the input's name attached."""
+    import numpy as np
+
+    from .intrinsic import resolve_umbilicus
+
+    try:
+        resolve_umbilicus(data, np.zeros(1))
+    except (ValueError, TypeError, KeyError, IndexError) as exc:
+        _die(f"--umbilicus: {spec}: {exc}")
 
 
 def cmd_score(args) -> int:
     from .intrinsic import intrinsic_report
     from .io_tifxyz import load_run_windings
-    from .metrics import score_patches
+    from .metrics import NoScorablePoint, score_patches
     from .report import write_report
     from .split import audit_fit_inputs, audit_scored_patches
 
     # Validate every option before the first heavy load, so a typo in the last
     # flag is not discovered minutes into the run, one loading step at a time.
-    if args.tau <= 0:
-        _die(f"--tau must be positive, got {args.tau}")
+    # "not (x > 0)" rather than "x <= 0": both comparisons are False for NaN,
+    # and NaN must be refused, not scored into the report.
+    if not args.tau > 0:
+        _die(f"--tau must be a positive number, got {args.tau}")
     # A non-positive threshold would let every scored point count as unseen,
     # which silently turns the report's central guarantee into a tautology.
-    if args.unseen_min_dist <= 0:
+    if not args.unseen_min_dist > 0:
         _die(
-            f"--unseen-min-dist must be positive, got {args.unseen_min_dist}: "
+            f"--unseen-min-dist must be a positive number, got {args.unseen_min_dist}: "
             "a non-positive threshold would report seen evidence as unseen"
         )
     z_range = None
@@ -81,7 +102,7 @@ def cmd_score(args) -> int:
             parts = [float(v) for v in args.z_range.split(",")]
         except ValueError:
             parts = []
-        if len(parts) != 2 or parts[0] >= parts[1]:
+        if len(parts) != 2 or not all(map(math.isfinite, parts)) or parts[0] >= parts[1]:
             _die(f"--z-range expects 'z_min,z_max', got {args.z_range!r}")
         z_range = (parts[0], parts[1])
     _load_umbilicus(args.umbilicus)  # validate now; reparsed cheaply at use site
@@ -100,6 +121,11 @@ def cmd_score(args) -> int:
             unlisted, listed, n_heldout = audit_scored_patches(args.manifest, args.patches)
         except (NotADirectoryError, FileNotFoundError, json.JSONDecodeError) as exc:
             _die(str(exc))
+        except (KeyError, TypeError, AttributeError) as exc:
+            _die(
+                f"--manifest: {args.manifest} does not look like a split "
+                f"manifest ({type(exc).__name__}: {exc})"
+            )
         # Directory counts, not scored counts: the aggregate's n_patches and
         # n_patches_skipped say how many of these were actually scored.
         audit_meta["patches_dir_listed_in_manifest"] = listed
@@ -131,7 +157,13 @@ def cmd_score(args) -> int:
         if unlisted:
             audit_meta["patches_dir_unlisted"] = len(unlisted)
         if args.fit_inputs:
-            offenders = audit_fit_inputs(args.manifest, args.fit_inputs)
+            try:
+                offenders = audit_fit_inputs(args.manifest, args.fit_inputs)
+            except (KeyError, TypeError, AttributeError) as exc:
+                _die(
+                    f"--manifest: {args.manifest} does not look like a split "
+                    f"manifest ({type(exc).__name__}: {exc})"
+                )
             if offenders:
                 print("REFUSED: fit inputs contain held-out patches:", file=sys.stderr)
                 for o in offenders:
@@ -150,6 +182,8 @@ def cmd_score(args) -> int:
         family = load_run_windings(Path(args.meshes), variant=args.variant)
     except (FileNotFoundError, ValueError) as exc:
         _die(str(exc))
+    except KeyError as exc:
+        _die(f"cannot load meshes from {args.meshes}: missing key {exc} in a meta.json")
     if args.fit_inputs is None:
         n_spliced = sum(
             1 for s in family.values() if s.path is not None and "_spliced" in s.path.name
@@ -187,10 +221,13 @@ def cmd_score(args) -> int:
                 )
                 return 5
             audit_meta["fit_inputs_load_errors"] = len(input_errors)
-    scores, aggregate = score_patches(
-        patches, family, tau=args.tau, z_range=z_range,
-        input_family=input_family, unseen_min_dist=args.unseen_min_dist,
-    )
+    try:
+        scores, aggregate = score_patches(
+            patches, family, tau=args.tau, z_range=z_range,
+            input_family=input_family, unseen_min_dist=args.unseen_min_dist,
+        )
+    except NoScorablePoint as exc:
+        _die(str(exc))
     intrinsic = None
     if not args.no_intrinsic and len(family) >= 2:
         if args.umbilicus is None:
@@ -306,11 +343,19 @@ _DEMO_PATCHES = [
 ]
 
 
+def _q(path) -> str:
+    """Quote a path for the copy-pastable hints when it contains spaces."""
+    s = str(path)
+    return f'"{s}"' if " " in s else s
+
+
 def cmd_demo(args) -> int:
     from .io_tifxyz import save_tifxyz
     from .synthetic import collapse_gap, make_family, sample_patch, swap_band
 
     out = Path(args.out)
+    if out.exists() and not out.is_dir():
+        _die(f"--out: {out} exists and is not a directory")
     scroll = make_family(num_windings=8, first_winding=10, pitch=_DEMO_PITCH, z_count=20)
     fit = scroll
     if not args.clean:
@@ -354,10 +399,11 @@ def cmd_demo(args) -> int:
               "one winding out of place is still close to something. The "
               "collapse shows up under collapsed gaps and as the large "
               "distances on the collapsed winding's patch.")
+        clean_out = out.parent / (out.name + "_clean")
         print("compare against the clean twin:")
-        print(f"  spiralcheck demo --clean --out {out.parent / (out.name + '_clean')}")
-        print(f"  spiralcheck compare {out.parent / (out.name + '_clean') / 'report' / 'report.json'} "
-              f"{out / 'report' / 'report.json'} --out {out.parent / 'demo_compare.md'}")
+        print(f"  spiralcheck demo --clean --out {_q(clean_out)}")
+        print(f"  spiralcheck compare {_q(clean_out / 'report' / 'report.json')} "
+              f"{_q(out / 'report' / 'report.json')} --out {_q(out.parent / 'demo_compare.md')}")
     return 0
 
 

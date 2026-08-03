@@ -156,6 +156,107 @@ def test_spliced_with_fit_inputs_does_not_warn(tmp_path, capsys):
     assert "_spliced" not in capsys.readouterr().err
 
 
+# The next block answers the 2026-08-03 pre-push adversarial review: every
+# case below used to reach the user as a raw traceback (or, for NaN, as a
+# poisoned exit-0 report), despite the "one line, exit 2" contract.
+
+@pytest.mark.parametrize("flag, value", [("--tau", "nan"), ("--unseen-min-dist", "nan")])
+def test_score_refuses_nan_thresholds(tmp_path, flag, value, capsys):
+    code = _exit_code([
+        "score", "--meshes", str(tmp_path / "nope"), "--patches", str(tmp_path / "x"),
+        "--out", str(tmp_path / "y"), flag, value,
+    ])
+    assert code == 2
+    assert flag in capsys.readouterr().err
+
+
+def test_score_refuses_nan_z_range(tmp_path, capsys):
+    code = _exit_code([
+        "score", "--meshes", str(tmp_path / "nope"), "--patches", str(tmp_path / "x"),
+        "--out", str(tmp_path / "y"), "--z-range", "nan,nan",
+    ])
+    assert code == 2
+    assert "--z-range" in capsys.readouterr().err
+
+
+def test_score_disjoint_z_range_is_one_line_exit_2(tmp_path, capsys):
+    meshes, patches = _tiny_run(tmp_path, spliced=False)
+    code = _exit_code([
+        "score", "--meshes", str(meshes), "--patches", str(patches),
+        "--out", str(tmp_path / "rep"), "--variant", "plain", "--overlays", "0",
+        "--z-range", "100000,100001",
+    ])
+    err = capsys.readouterr().err
+    assert code == 2
+    assert "no patch had a scorable point" in err
+    assert "Traceback" not in err
+
+
+def test_score_rejects_umbilicus_directory(tmp_path, capsys):
+    code = _exit_code([
+        "score", "--meshes", str(tmp_path / "nope"), "--patches", str(tmp_path / "x"),
+        "--out", str(tmp_path / "y"), "--umbilicus", str(tmp_path),
+    ])
+    assert code == 2
+    assert "directory" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("payload", ['{"foo": 1}', '"hello"', "[[1, 2], [3]]"])
+def test_score_rejects_wrong_shaped_umbilicus_json_early(tmp_path, payload, capsys):
+    bad = tmp_path / "umb.json"
+    bad.write_text(payload, encoding="utf-8")
+    code = _exit_code([
+        "score", "--meshes", str(tmp_path / "nope"), "--patches", str(tmp_path / "x"),
+        "--out", str(tmp_path / "y"), "--umbilicus", str(bad),
+    ])
+    err = capsys.readouterr().err
+    assert code == 2
+    assert "umbilicus" in err
+    assert "Traceback" not in err
+
+
+def test_score_rejects_json_that_is_not_a_manifest(tmp_path, capsys):
+    meshes, patches = _tiny_run(tmp_path, spliced=False)
+    not_manifest = tmp_path / "manifest.json"
+    not_manifest.write_text(json.dumps({"meta": {}}), encoding="utf-8")
+    code = _exit_code([
+        "score", "--meshes", str(meshes), "--patches", str(patches),
+        "--out", str(tmp_path / "rep"), "--variant", "plain", "--overlays", "0",
+        "--manifest", str(not_manifest),
+    ])
+    err = capsys.readouterr().err
+    assert code == 2
+    assert "split" in err and "manifest" in err
+    assert "Traceback" not in err
+
+
+@pytest.mark.parametrize("payload", ["null", "[1, 2]"])
+def test_compare_rejects_non_object_roots(tmp_path, payload, capsys):
+    bad = tmp_path / "bad.json"
+    bad.write_text(payload, encoding="utf-8")
+    code = _exit_code(["compare", str(bad), str(bad), "--out", str(tmp_path / "c.md")])
+    err = capsys.readouterr().err
+    assert code == 2
+    assert "not a spiralcheck report.json" in err
+
+
+def test_demo_rejects_out_path_that_is_a_file(tmp_path, capsys):
+    block = tmp_path / "blockfile"
+    block.write_text("x", encoding="utf-8")
+    code = _exit_code(["demo", "--out", str(block)])
+    assert code == 2
+    assert "--out" in capsys.readouterr().err
+
+
+def test_intrinsic_bad_meshes_is_one_line_exit_2(tmp_path, capsys):
+    code = _exit_code([
+        "intrinsic", "--meshes", str(tmp_path / "nope"), "--out", str(tmp_path / "y"),
+    ])
+    err = capsys.readouterr().err
+    assert code == 2
+    assert "Traceback" not in err
+
+
 def test_help_shows_defaults_and_exit_codes(capsys):
     assert _exit_code(["score", "--help"]) == 0
     out = capsys.readouterr().out

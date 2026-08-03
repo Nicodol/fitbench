@@ -50,6 +50,12 @@ class PatchSkip(ValueError):
     """
 
 
+class NoScorablePoint(ValueError):
+    """Every offered patch was skipped: an input mistake (typically a z window
+    disjoint from the patches), not an engine failure, so the CLI reports it
+    as one, in one line."""
+
+
 @dataclass
 class WindingFamilySoup:
     """All winding surfaces of a run merged into one queryable soup."""
@@ -468,7 +474,7 @@ def score_patches(
         except PatchSkip:
             skipped.append(pid)
     if not scores:
-        raise ValueError("no patch had a scorable point (check --z-range)")
+        raise NoScorablePoint("no patch had a scorable point (check --z-range)")
 
     all_dist = np.concatenate([s.point_dist for s in scores])
     all_angles = np.concatenate([s.point_normal_angle for s in scores])
