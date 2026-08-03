@@ -74,7 +74,7 @@ and `examples/bootstrap_quality2_vs_cheap2.txt` byte for byte; the last line is 
 54-mutation audit of the test suite itself (5 to 15 minutes depending on the machine;
 it prints its progress).
 [examples/README.md](examples/README.md) indexes every shipped artifact.
-[SUBMISSION.md](SUBMISSION.md) is the narrative overview of the whole suite;
+[OVERVIEW.md](OVERVIEW.md) is the narrative overview of the whole suite;
 [DESIGN.md](DESIGN.md) holds the metric definitions and protocol;
 [VALIDATION.md](VALIDATION.md) what was tested and the resulting numbers; the
 measurement utilities behind them live in `scripts/` (each has a docstring;

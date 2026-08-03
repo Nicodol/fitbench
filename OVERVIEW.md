@@ -1,10 +1,11 @@
-# Progress prize submission draft
+# spiralcheck: what it is, and why you can trust the numbers
 
-Form-ready text.
-
----
-
-**Title**: spiralcheck, a held-out evaluation suite for whole-scroll surface fits
+The narrative overview of the suite, for anyone deciding whether it is worth
+their time: the gap it fills, what it measures, the controls behind every
+claim, and what it cannot see. [README.md](README.md) has the commands,
+[DESIGN.md](DESIGN.md) the metric definitions and protocol, and
+[VALIDATION.md](VALIDATION.md) the full test record with the corrections our
+own review rounds forced.
 
 **What problem does this solve?**
 
