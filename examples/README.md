@@ -17,7 +17,7 @@ Five real runs, one JSON + Markdown pair each. The `.md` is a pure rendering of 
 | run | what it is |
 |---|---|
 | `smoke8` | VALIDATION section 6, the dense-input demo fit (389 in-window verified patches, 1,500 steps, consumer GPU) |
-| `sparse2` | section 6, the sparse twin: same everything, 2 input patches, so the fit must interpolate |
+| `sparse2` | section 6, the sparse twin: same settings and step budget, no patch inputs (`use_verified_patches=false` is the one changed switch), so the fit must interpolate |
 | `cheap2` | section 8, the 1,500-step twin re-run on Kaggle (reproduces smoke8 within 0.26% relative on the unseen aggregate, the numbers the repo quotes) |
 | `quality2` | section 8, the 6,000-step twin: same seed, code, data, GPU; only the step budget differs |
 | `pherc1218` | section 7, the second-scroll feasibility case study (community parity fit, PHerc. 1218) |
