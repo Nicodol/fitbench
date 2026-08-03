@@ -592,7 +592,7 @@ tables `examples/bootstrap_*.txt`.
 
 ```bash
 uv sync --group dev
-uv run pytest -q                      # 105 tests + 1 strict xfail (a frozen known limit)
+uv run pytest -q                      # 130 tests + 1 strict xfail (a frozen known limit)
 uv run python scripts/mutation_check.py   # 54/54 injected bugs must be detected
 uv run python scripts/real_data_smoke.py <verified_patches_dir> 500
 uv run python scripts/real_overlap_check.py <verified_patches_dir> 150

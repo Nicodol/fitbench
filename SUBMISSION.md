@@ -68,6 +68,9 @@ spiralcheck scores a run from its output meshes alone, CPU-only, no checkpoint:
   the umbilicus, collapsed/inflated inter-winding gaps, validity; violations
   localized in (z, theta).
 - `spiralcheck compare`: same metrics for two runs, delta table.
+- `spiralcheck demo`: the whole pipeline on a synthetic scroll with planted
+  defects (and a `--clean` null-control twin), so anyone can run the tool in
+  seconds with no data.
 
 Reads standard tifxyz (per-winding `wNNN[_spliced]` dirs or combined
 QuadSurfaces with `winding_column_ranges`); producer-agnostic by design.

@@ -5,6 +5,109 @@
 Built for the "devise better evaluation suites" item of the Vesuvius Challenge
 [2026 open problems](https://scrollprize.org/2026_open_problems). MIT license.
 
+## Getting started
+
+Requires Python >= 3.12; [uv](https://docs.astral.sh/uv/) installs a matching
+interpreter by itself (plain `pip install -e .` also works on a matching Python).
+
+```bash
+git clone https://github.com/Nicodol/spiralcheck
+cd spiralcheck
+uv sync --group dev
+uv run spiralcheck demo --out demo/
+```
+
+The demo needs no data and takes a few seconds: it builds a small synthetic scroll,
+plants two defects from the validation matrix, scores the result exactly like a real run,
+and tells you where each defect shows up in `demo/report/report.md`. Add `--clean` for
+the null-control twin, where every alarm must stay silent.
+
+On a real `fit_spiral` run folder:
+
+```bash
+uv run spiralcheck score \
+    --meshes out/<run>/meshes/fitted_<tag> \
+    --patches <heldout_patches_dir> \
+    --manifest <split_manifest.json> \
+    --fit-inputs <fit_patches_dir> \
+    --umbilicus <dataset>/umbilicus.json \
+    --z-range 10600,10900 \
+    --out report/
+```
+
+This writes `report/report.json` (machine-readable), `report/report.md` (the same
+numbers with a reading guide per section), and two `overlay_z*.png` slice images.
+Scoring is post hoc (existing run folders, nothing re-run) and CPU-only; the section 6
+demo run scores in about 75 CPU-seconds, against 6 to 16 GPU-minutes for the cheap demo
+fits themselves and far longer for a production fit. Only `--meshes`, `--patches` and `--out` are
+required, but `--manifest` and `--fit-inputs` are the leakage audit: without them nothing
+distinguishes evidence the fit already saw (a first run without `--fit-inputs` warns
+about exactly that). Every flag, default and exit code is in `spiralcheck score --help`.
+
+The five subcommands (`spiralcheck <cmd> --help` for each):
+
+| command | what it does |
+|---|---|
+| `score` | held-out metrics + evidence-leakage audit + intrinsic checks on one run |
+| `split` | seeded held-out split of a patch directory, manifest with content and geometry hashes |
+| `intrinsic` | ground-truth-free checks only, no patches needed |
+| `compare` | metric-by-metric delta table between two `report.json` |
+| `demo` | synthetic scroll with planted defects, scored end to end, zero data |
+
+### Try it without data
+
+Everything below replays from the repository alone, deterministically:
+
+```bash
+uv run spiralcheck demo --out demo/
+uv run pytest -q
+uv run spiralcheck compare examples/real_run_smoke8_report.json examples/real_run_sparse2_report.json --out cmp.md
+uv run python scripts/bootstrap_ci.py examples/real_run_quality2_report.json examples/real_run_cheap2_report.json --draws 20000 --unseen
+uv run python scripts/mutation_check.py
+```
+
+The `compare` and `bootstrap_ci` lines reproduce `examples/compare_smoke8_vs_sparse2.md`
+and `examples/bootstrap_quality2_vs_cheap2.txt` byte for byte; the last line is the
+54-mutation audit of the test suite itself (several minutes; it prints its progress).
+[examples/README.md](examples/README.md) indexes every shipped artifact.
+[SUBMISSION.md](SUBMISSION.md) is the narrative overview of the whole suite;
+[DESIGN.md](DESIGN.md) holds the metric definitions and protocol;
+[VALIDATION.md](VALIDATION.md) what was tested and the resulting numbers; the
+measurement utilities behind them live in `scripts/` (each has a docstring;
+`bootstrap_ci.py`'s doubles as the statistical reading guide).
+
+## What it does
+
+- **Held-out accuracy**: surface-distance percentiles and fraction within tau, sheet consistency
+  (seam-aware and drift-aware, via a continuous winding coordinate) plus the raw single-winding
+  fraction, winding-number agreement, and normal agreement, per held-out patch and aggregated.
+- **Evidence-leakage audit**: given the fit's actual input patches, spiralcheck measures how much of
+  the "held-out" evidence lies within touching distance of an input surface (overlapping patch
+  selections make name-level splits leaky) and re-scores the genuinely unseen evidence separately.
+- **Intrinsic checks**: radial monotonicity of the winding family around the umbilicus,
+  inter-winding spacing distribution (collapsed and inflated gaps), validity stats.
+- **Run comparison**: the same report for two run folders, with deltas.
+- Reports as JSON + Markdown plus PNG overlays. CPU-only, no torch, no GPU, no checkpoint needed.
+
+It is producer-agnostic: any directory of `tifxyz` winding surfaces whose winding ids are
+readable from the directory names (`wNNN`, `wNNN_spliced`, with an optional run tag) can
+be scored, and two runs can be compared metric by metric.
+
+## Typical uses
+
+Evaluation exists to make iteration safe. Concretely:
+
+- **Tuning**: change a hyperparameter or an input set, re-fit, `spiralcheck compare` the two runs.
+- **Regression testing**: after a change to the fitter's code, check that the output surfaces did
+  not get worse; satisfaction metrics cannot answer this post hoc.
+- **Cross-producer comparison**: any pipeline that emits `tifxyz` winding surfaces is scored with
+  the same ruler.
+- **Quality gate**: score one run and read the localized alerts (winding, z, theta) before
+  spending GPU-hours of ink detection on its surfaces.
+
+The seeded split keeps the sealed exam identical across runs, so numbers stay comparable
+over time.
+
 ## Why
 
 villa optimises whole-scroll fits for *ink coverage*, and uses *constraint satisfaction* as the
@@ -28,44 +131,7 @@ tolerance; the difference is that it does so through the fit's own transform, an
 fit's own inputs.)
 
 `spiralcheck` evaluates a fit *from its output meshes alone*, against **held-out verified patches**
-that the fit never saw, plus intrinsic topology checks that need no ground truth at all. It is
-producer-agnostic: any directory of `tifxyz` winding surfaces whose winding ids are readable from
-the directory names (`wNNN`, `wNNN_spliced`, with an optional run tag) can be scored, and two runs can
-be compared metric by metric.
-
-## What it does
-
-- **Held-out accuracy**: surface-distance percentiles and fraction within tau, sheet consistency
-  (seam-aware and drift-aware, via a continuous winding coordinate) plus the raw single-winding
-  fraction, winding-number agreement, and normal agreement, per held-out patch and aggregated.
-- **Evidence-leakage audit**: given the fit's actual input patches, spiralcheck measures how much of
-  the "held-out" evidence lies within touching distance of an input surface (overlapping patch
-  selections make name-level splits leaky) and re-scores the genuinely unseen evidence separately.
-- **Intrinsic checks**: radial monotonicity of the winding family around the umbilicus,
-  inter-winding spacing distribution (collapsed and inflated gaps), validity stats.
-- **Run comparison**: the same report for two run folders, with deltas.
-- Reports as JSON + Markdown plus PNG overlays. CPU-only, no torch, no GPU, no checkpoint needed.
-
-## Typical uses
-
-Evaluation exists to make iteration safe. Concretely:
-
-- **Tuning**: change a hyperparameter or an input set, re-fit, `spiralcheck compare` the two runs.
-- **Regression testing**: after a change to the fitter's code, check that the output surfaces did
-  not get worse; satisfaction metrics cannot answer this post hoc.
-- **Cross-producer comparison**: any pipeline that emits `tifxyz` winding surfaces is scored with
-  the same ruler.
-- **Quality gate**: score one run and read the localized alerts (winding, z, theta) before
-  spending GPU-hours of ink detection on its surfaces.
-
-Scoring is cheap (75 CPU-seconds for the demo run, against 6 to 16 GPU-minutes for the cheap
-demo fits themselves, and far longer for a production fit) and post hoc (existing run folders,
-nothing re-run), and the seeded split keeps the sealed exam identical across runs, so numbers
-stay comparable over time.
-
-See [DESIGN.md](DESIGN.md) for the metric definitions, the held-out split protocol, and the
-planted-defect validation plan, and [VALIDATION.md](VALIDATION.md) for what was tested and the
-resulting numbers (planted-defect matrix, mutation audit, real-data controls).
+that the fit never saw, plus intrinsic topology checks that need no ground truth at all.
 
 ## Status
 
@@ -88,7 +154,9 @@ in the long run's favor (sheet consistency +0.21, within-tau +0.06, normals
 metric agrees. Cross-platform reproduction of the section 6 reference within
 0.26% relative bounds the platform's contribution. Plus a second-scroll
 feasibility case study (section 7) and the measured shared-annotation
-channel (section 6).
+channel (section 6). A first-contact usability round (still August) added the
+demo subcommand, the reading guides in the reports, and this Getting started;
+no metric changed ([CHANGELOG.md](CHANGELOG.md)).
 
 Four external-style review rounds (adversarial code review, claims audit against
 artifacts, upstream check, test-quality audit writing its own counter-mutations)
