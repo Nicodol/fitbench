@@ -47,17 +47,28 @@ def load(path: Path, unseen: bool) -> dict:
     return rows
 
 
+class _Fmt(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
+    pass
+
+
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("report_a")
-    p.add_argument("report_b")
-    p.add_argument("--draws", type=int, default=20000)
-    p.add_argument("--seed", type=int, default=20260731)
+    p = argparse.ArgumentParser(description=__doc__, formatter_class=_Fmt)
+    p.add_argument("report_a", help="report.json of run A")
+    p.add_argument("report_b", help="report.json of run B (the table prints A - B)")
+    p.add_argument("--draws", type=int, default=20000, help="number of bootstrap draws")
+    p.add_argument("--seed", type=int, default=20260731, help="resampling seed")
     p.add_argument("--unseen", action="store_true",
                    help="resample the per-patch UNSEEN blocks instead of the "
                         "full-patch numbers (both reports must have been "
                         "scored with --fit-inputs)")
     args = p.parse_args(argv)
+
+    # State the inputs and knobs first: three weeks later, a saved copy of
+    # this output must still say what was compared and how to reproduce it.
+    print(f"A: {args.report_a}")
+    print(f"B: {args.report_b}")
+    blocks = "unseen" if args.unseen else "full-patch"
+    print(f"draws: {args.draws}, seed: {args.seed}, blocks: {blocks}")
 
     a_by_id = load(Path(args.report_a), args.unseen)
     b_by_id = load(Path(args.report_b), args.unseen)

@@ -10,11 +10,21 @@ from pathlib import Path
 from . import __version__
 
 
+def _die(message: str) -> None:
+    """Predictable input mistakes (a mistyped path, an invalid option value)
+    deserve one explanatory line and exit 2, not a traceback: the traceback
+    format is reserved for bugs in this tool."""
+    print(f"error: {message}", file=sys.stderr)
+    raise SystemExit(2)
+
+
 def _load_patches_dir(path: Path) -> tuple[dict, dict[str, str]]:
     """Load every tifxyz child directory; collect per-patch load errors instead
     of letting one corrupted directory (e.g. a partial sync) abort the run."""
     from .io_tifxyz import load_tifxyz
 
+    if not path.is_dir():
+        _die(f"not a directory: {path}")
     patches, errors = {}, {}
     for d in sorted(path.iterdir()):
         if d.is_dir() and (d / "meta.json").exists():
@@ -24,7 +34,7 @@ def _load_patches_dir(path: Path) -> tuple[dict, dict[str, str]]:
                 errors[d.name] = f"{type(exc).__name__}: {exc}"
                 print(f"warning: could not load patch {d.name}: {exc}", file=sys.stderr)
     if not patches:
-        raise SystemExit(f"no loadable tifxyz patch directory in {path}")
+        _die(f"no loadable tifxyz patch directory in {path}")
     return patches, errors
 
 
@@ -33,12 +43,18 @@ def _load_umbilicus(spec: str | None):
         return None
     p = Path(spec)
     if p.exists():
-        data = json.loads(p.read_text(encoding="utf-8"))
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            _die(f"--umbilicus: {p} is not valid JSON: {exc}")
         return data  # villa umbilicus.json, or (K, 3) rows of [z, y, x]
-    parts = [float(v) for v in spec.split(",")]
+    try:
+        parts = [float(v) for v in spec.split(",")]
+    except ValueError:
+        parts = []
     if len(parts) == 2:
         return tuple(parts)
-    raise SystemExit(f"cannot interpret umbilicus spec: {spec!r}")
+    _die(f"cannot interpret umbilicus spec {spec!r}: expected 'y,x' or an existing json file")
 
 
 def cmd_score(args) -> int:
@@ -48,22 +64,42 @@ def cmd_score(args) -> int:
     from .report import write_report
     from .split import audit_fit_inputs, audit_scored_patches
 
+    # Validate every option before the first heavy load, so a typo in the last
+    # flag is not discovered minutes into the run, one loading step at a time.
     if args.tau <= 0:
-        raise SystemExit(f"--tau must be positive, got {args.tau}")
+        _die(f"--tau must be positive, got {args.tau}")
     # A non-positive threshold would let every scored point count as unseen,
     # which silently turns the report's central guarantee into a tautology.
     if args.unseen_min_dist <= 0:
-        raise SystemExit(
+        _die(
             f"--unseen-min-dist must be positive, got {args.unseen_min_dist}: "
             "a non-positive threshold would report seen evidence as unseen"
         )
+    z_range = None
+    if args.z_range:
+        try:
+            parts = [float(v) for v in args.z_range.split(",")]
+        except ValueError:
+            parts = []
+        if len(parts) != 2 or parts[0] >= parts[1]:
+            _die(f"--z-range expects 'z_min,z_max', got {args.z_range!r}")
+        z_range = (parts[0], parts[1])
+    _load_umbilicus(args.umbilicus)  # validate now; reparsed cheaply at use site
+    if not Path(args.meshes).is_dir():
+        _die(f"--meshes: not a directory: {args.meshes}")
+    if not Path(args.patches).is_dir():
+        _die(f"--patches: not a directory: {args.patches}")
+    if args.fit_inputs and not Path(args.fit_inputs).is_dir():
+        _die(f"--fit-inputs: not a directory: {args.fit_inputs}")
+    if args.manifest and not Path(args.manifest).is_file():
+        _die(f"--manifest: not a file: {args.manifest}")
 
     audit_meta: dict = {}
     if args.manifest:
         try:
             unlisted, listed, n_heldout = audit_scored_patches(args.manifest, args.patches)
-        except (NotADirectoryError, FileNotFoundError) as exc:
-            raise SystemExit(str(exc)) from exc
+        except (NotADirectoryError, FileNotFoundError, json.JSONDecodeError) as exc:
+            _die(str(exc))
         # Directory counts, not scored counts: the aggregate's n_patches and
         # n_patches_skipped say how many of these were actually scored.
         audit_meta["patches_dir_listed_in_manifest"] = listed
@@ -110,7 +146,26 @@ def cmd_score(args) -> int:
                 file=sys.stderr,
             )
 
-    family = load_run_windings(Path(args.meshes), variant=args.variant)
+    try:
+        family = load_run_windings(Path(args.meshes), variant=args.variant)
+    except (FileNotFoundError, ValueError) as exc:
+        _die(str(exc))
+    if args.fit_inputs is None:
+        n_spliced = sum(
+            1 for s in family.values() if s.path is not None and "_spliced" in s.path.name
+        )
+        if n_spliced:
+            print(
+                f"warning: {n_spliced} of {len(family)} loaded windings are the "
+                "_spliced variant, which embeds the fit's own input patches "
+                "verbatim, and no --fit-inputs was given: distances near any "
+                "input partly measure the splice, not the fit, and nothing "
+                "here can tell those points apart. Pass --fit-inputs to "
+                "measure the leakage and score the unseen evidence "
+                "separately, or score --variant plain (see DESIGN.md, "
+                "Operating point).",
+                file=sys.stderr,
+            )
     patches, load_errors = _load_patches_dir(Path(args.patches))
     input_family = None
     if args.fit_inputs:
@@ -132,12 +187,6 @@ def cmd_score(args) -> int:
                 )
                 return 5
             audit_meta["fit_inputs_load_errors"] = len(input_errors)
-    z_range = None
-    if args.z_range:
-        parts = [float(v) for v in args.z_range.split(",")]
-        if len(parts) != 2 or parts[0] >= parts[1]:
-            raise SystemExit(f"--z-range expects 'z_min,z_max', got {args.z_range!r}")
-        z_range = (parts[0], parts[1])
     scores, aggregate = score_patches(
         patches, family, tau=args.tau, z_range=z_range,
         input_family=input_family, unseen_min_dist=args.unseen_min_dist,
@@ -182,7 +231,10 @@ def cmd_intrinsic(args) -> int:
     from .io_tifxyz import load_run_windings
     from .report import write_report
 
-    family = load_run_windings(Path(args.meshes), variant=args.variant)
+    try:
+        family = load_run_windings(Path(args.meshes), variant=args.variant)
+    except (FileNotFoundError, ValueError) as exc:
+        _die(str(exc))
     if args.umbilicus is None:
         print(
             "warning: intrinsic checks without --umbilicus assume the scroll "
@@ -206,6 +258,10 @@ def cmd_intrinsic(args) -> int:
 def cmd_split(args) -> int:
     from .split import split_patches
 
+    if not Path(args.src).is_dir():
+        _die(f"--src: not a directory: {args.src}")
+    if not 0.0 < args.frac < 1.0:
+        _die(f"--frac must be strictly between 0 and 1, got {args.frac}")
     manifest = split_patches(
         Path(args.src), Path(args.out), heldout_frac=args.frac, seed=args.seed
     )
@@ -221,7 +277,10 @@ def cmd_split(args) -> int:
 def cmd_compare(args) -> int:
     from .report import compare_reports
 
-    out = compare_reports(args.report_a, args.report_b, args.out)
+    try:
+        out = compare_reports(args.report_a, args.report_b, args.out)
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        _die(str(exc))
     print(f"comparison: {out}")
     return 0
 
@@ -302,27 +361,79 @@ def cmd_demo(args) -> int:
     return 0
 
 
+def _add_variant_flag(p) -> None:
+    p.add_argument(
+        "--variant", default="spliced", choices=["spliced", "plain", "any"],
+        help="which winding directories to load: 'spliced' prefers wNNN_spliced "
+        "(falls back to wNNN per winding), 'plain' loads wNNN only. The spliced "
+        "export embeds the fit's own input patches verbatim, so score it with "
+        "--fit-inputs or read DESIGN.md (Operating point) first",
+    )
+
+
+def _add_umbilicus_flag(p) -> None:
+    p.add_argument(
+        "--umbilicus", default=None,
+        help="scroll axis for the intrinsic checks: 'y,x' constant or a villa "
+        "umbilicus.json polyline of [z, y, x] rows. Omitted: the axis is "
+        "assumed at (y, x) = (0, 0), which is right for the demo scroll and "
+        "meaningless for real scans (a warning says so at run time)",
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="spiralcheck")
+    parser = argparse.ArgumentParser(
+        prog="spiralcheck",
+        description="Held-out geometric evaluation for whole-scroll surface "
+        "fits. New here? 'spiralcheck demo --out demo/' runs the whole tool "
+        "on a synthetic scroll with no data needed; the README's Getting "
+        "started section shows the real invocation.",
+    )
     parser.add_argument("--version", action="version", version=f"spiralcheck {__version__}")
     sub = parser.add_subparsers(dest="command", required=False)
+    fmt = {"formatter_class": argparse.ArgumentDefaultsHelpFormatter}
 
-    p = sub.add_parser("score", help="score a run's windings against held-out patches")
-    p.add_argument("--meshes", required=True, help="run meshes dir (wNNN[_spliced] or combined)")
-    p.add_argument("--patches", required=True, help="directory of held-out tifxyz patches")
-    p.add_argument("--out", required=True, help="output report directory")
-    p.add_argument("--tau", type=float, default=6.0, help="distance tolerance in voxels")
-    p.add_argument("--variant", default="spliced", choices=["spliced", "plain", "any"])
-    p.add_argument("--umbilicus", default=None, help="'y,x' constant or json polyline [z,y,x]")
+    p = sub.add_parser(
+        "score", help="score a run's windings against held-out patches", **fmt,
+        epilog="exit codes: 0 scored; 2 invalid option or unreadable input; "
+        "3 fit inputs contain held-out patches; 4 scored patches are not the "
+        "manifest's held-out side; 5 unloadable fit inputs (see the two "
+        "--allow-* flags).",
+    )
+    p.add_argument(
+        "--meshes", required=True, default=argparse.SUPPRESS,
+        help="run meshes directory: wNNN[_spliced] winding dirs or one "
+        "combined surface, e.g. out/<run>/meshes/fitted_<tag>",
+    )
+    p.add_argument(
+        "--patches", required=True, default=argparse.SUPPRESS,
+        help="directory of held-out tifxyz patches to score",
+    )
+    p.add_argument(
+        "--out", required=True, default=argparse.SUPPRESS,
+        help="report directory to write: report.json, report.md, overlay PNGs",
+    )
+    p.add_argument(
+        "--tau", type=float, default=6.0,
+        help="distance tolerance in voxels of the mesh grid",
+    )
+    _add_variant_flag(p)
+    _add_umbilicus_flag(p)
     p.add_argument(
         "--z-range", default=None,
-        help="'z_min,z_max' of the fitted window: patch points outside it are not scored",
+        help="'z_min,z_max' of the fitted window: patch points outside it are "
+        "not scored (a run only claims to model its own window)",
     )
-    p.add_argument("--manifest", default=None, help="split_manifest.json to audit against")
+    p.add_argument(
+        "--manifest", default=None,
+        help="split_manifest.json to audit against: refuses to score patches "
+        "that are not its held-out side",
+    )
     p.add_argument(
         "--fit-inputs", default=None,
         help="fit input patches dir: hash-audited against --manifest and used "
-        "for the geometric evidence-leakage measurement",
+        "for the geometric evidence-leakage measurement plus the unseen-only "
+        "aggregate",
     )
     p.add_argument(
         "--unseen-min-dist", type=float, default=2.0,
@@ -340,36 +451,77 @@ def main(argv: list[str] | None = None) -> int:
         help="proceed even if some --fit-inputs patches cannot be loaded "
         "(weakens the leakage measurement; the error count is recorded)",
     )
-    p.add_argument("--overlays", type=int, default=2, help="number of overlay PNG slices")
-    p.add_argument("--no-intrinsic", action="store_true")
+    p.add_argument(
+        "--overlays", type=int, default=2,
+        help="number of overlay PNG slices to render (0 disables)",
+    )
+    p.add_argument(
+        "--no-intrinsic", action="store_true",
+        help="skip the ground-truth-free intrinsic checks",
+    )
     p.set_defaults(func=cmd_score)
 
-    p = sub.add_parser("intrinsic", help="ground-truth-free checks only")
-    p.add_argument("--meshes", required=True)
-    p.add_argument("--out", required=True)
-    p.add_argument("--variant", default="spliced", choices=["spliced", "plain", "any"])
-    p.add_argument("--umbilicus", default=None)
+    p = sub.add_parser(
+        "intrinsic", help="ground-truth-free checks only (no patches needed)", **fmt,
+    )
+    p.add_argument(
+        "--meshes", required=True, default=argparse.SUPPRESS,
+        help="run meshes directory: wNNN[_spliced] winding dirs or one combined surface",
+    )
+    p.add_argument(
+        "--out", required=True, default=argparse.SUPPRESS,
+        help="report directory to write: report.json, report.md",
+    )
+    _add_variant_flag(p)
+    _add_umbilicus_flag(p)
     p.set_defaults(func=cmd_intrinsic)
 
-    p = sub.add_parser("split", help="seeded held-out split of a patch directory")
-    p.add_argument("--src", required=True)
-    p.add_argument("--out", required=True)
-    p.add_argument("--frac", type=float, default=0.2)
-    p.add_argument("--seed", type=int, default=20260731)
+    p = sub.add_parser(
+        "split", help="seeded held-out split of a patch directory", **fmt,
+        epilog="patches are grouped into near-duplicate families before "
+        "splitting, and a whole family goes to one side; see DESIGN.md, "
+        "Held-out protocol.",
+    )
+    p.add_argument(
+        "--src", required=True, default=argparse.SUPPRESS,
+        help="directory of verified tifxyz patches to split",
+    )
+    p.add_argument(
+        "--out", required=True, default=argparse.SUPPRESS,
+        help="output directory: fit/, heldout/, split_manifest.json",
+    )
+    p.add_argument(
+        "--frac", type=float, default=0.2,
+        help="fraction of patch families to hold out (the patch-level "
+        "fraction lands close but not equal; the manifest records both)",
+    )
+    p.add_argument("--seed", type=int, default=20260731, help="deterministic split seed")
     p.set_defaults(func=cmd_split)
 
-    p = sub.add_parser("compare", help="delta table between two report.json files")
-    p.add_argument("report_a")
-    p.add_argument("report_b")
-    p.add_argument("--out", required=True)
+    p = sub.add_parser(
+        "compare", help="delta table between two report.json files", **fmt,
+        epilog="deltas read B - A: positive means B is larger. The table "
+        "records both file paths; it fails (exit 2) when the two files share "
+        "no numeric report metric.",
+    )
+    p.add_argument("report_a", help="report.json of run A (the baseline)")
+    p.add_argument("report_b", help="report.json of run B")
+    p.add_argument(
+        "--out", required=True, default=argparse.SUPPRESS,
+        help="path of the Markdown FILE to write (one file, not a directory; "
+        "give it a .md name)",
+    )
     p.set_defaults(func=cmd_compare)
 
     p = sub.add_parser(
         "demo",
         help="generate a small synthetic scroll with planted defects and score "
-        "it: a full run of the tool with no data needed",
+        "it: a full run of the tool with no data needed", **fmt,
     )
-    p.add_argument("--out", required=True, help="directory for the demo scroll and its report")
+    p.add_argument(
+        "--out", required=True, default=argparse.SUPPRESS,
+        help="directory for the demo scroll and its report",
+    )
     p.add_argument(
         "--clean", action="store_true",
         help="plant no defect: the null control, where every alarm must stay silent",

@@ -227,8 +227,21 @@ def write_report(
     return out_dir / "report.json"
 
 
+def _natural_key(text: str) -> tuple:
+    """Sort '...winding.11' before '...winding.100': split digit runs and
+    compare them as numbers (plain string sort puts 10, 100, 101 before 11)."""
+    import re
+
+    return tuple(int(part) if part.isdigit() else part for part in re.split(r"(\d+)", text))
+
+
 def compare_reports(report_a: str | Path, report_b: str | Path, out_path: str | Path) -> Path:
-    """Delta table between two report.json files (aggregate metrics only)."""
+    """Delta table between two report.json files (aggregate metrics only).
+
+    Raises ValueError when the two files share no numeric report metric: a
+    silent empty table with a success exit code reads as "no difference",
+    which is the one thing it must never mean.
+    """
     a = json.loads(Path(report_a).read_text(encoding="utf-8"))
     b = json.loads(Path(report_b).read_text(encoding="utf-8"))
     rows = []
@@ -246,7 +259,19 @@ def compare_reports(report_a: str | Path, report_b: str | Path, out_path: str | 
                         )
             elif isinstance(va, (int, float)) and isinstance(vb, (int, float)):
                 rows.append([f"{section}.{key}", f"{va:.4g}", f"{vb:.4g}", f"{vb - va:+.4g}"])
-    text = "# spiralcheck compare\n\n" + _md_table(rows, ["metric", "A", "B", "B - A"]) + "\n"
+    if not rows:
+        raise ValueError(
+            f"{report_a} and {report_b} share no numeric report metric: are "
+            "both spiralcheck report.json files?"
+        )
+    rows.sort(key=lambda r: _natural_key(r[0]))
+    text = (
+        "# spiralcheck compare\n\n"
+        f"- A: {report_a}\n"
+        f"- B: {report_b}\n"
+        "- deltas read B - A: positive means B is larger\n\n"
+        + _md_table(rows, ["metric", "A", "B", "B - A"]) + "\n"
+    )
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(text, encoding="utf-8")

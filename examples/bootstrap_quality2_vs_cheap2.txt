@@ -1,3 +1,6 @@
+A: examples/real_run_quality2_report.json
+B: examples/real_run_cheap2_report.json
+draws: 20000, seed: 20260731, blocks: unseen
 bootstrap over 78 patches, 20000 paired draws
 values are point-weighted means of PER-PATCH numbers; for a percentile metric that is
 the mean of per-patch percentiles, which is not the pooled percentile the report

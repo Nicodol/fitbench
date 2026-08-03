@@ -283,12 +283,15 @@ def main() -> int:
         print("aborting: the unmutated suite must pass first")
         return 1
 
+    total = len(MUTATIONS)
+    print(f"{total} mutations, one full pytest run each: expect several "
+          "minutes (a few seconds per run on a desktop CPU)")
     caught, missed = 0, []
-    for filename, old, new, label in MUTATIONS:
+    for i, (filename, old, new, label) in enumerate(MUTATIONS, start=1):
         path = SRC / filename
         original = path.read_text(encoding="utf-8")
         if original.count(old) != 1:
-            print(f"[{filename}] SKIP (pattern count {original.count(old)}): {label}")
+            print(f"[{i}/{total}] [{filename}] SKIP (pattern count {original.count(old)}): {label}")
             missed.append(label + " (pattern not found)")
             continue
         path.write_text(original.replace(old, new), encoding="utf-8")
@@ -298,7 +301,7 @@ def main() -> int:
             path.write_text(original, encoding="utf-8")
         detected = rc != 0
         caught += detected
-        print(f"[{filename}] {'DETECTED' if detected else '*** SURVIVED ***'}: {label}")
+        print(f"[{i}/{total}] [{filename}] {'DETECTED' if detected else '*** SURVIVED ***'}: {label}")
         if not detected:
             missed.append(label)
 

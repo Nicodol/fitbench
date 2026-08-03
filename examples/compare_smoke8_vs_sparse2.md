@@ -1,5 +1,9 @@
 # spiralcheck compare
 
+- A: examples/real_run_smoke8_report.json
+- B: examples/real_run_sparse2_report.json
+- deltas read B - A: positive means B is larger
+
 | metric | A | B | B - A |
 |---|---|---|---|
 | heldout_aggregate.dist_max | 23.9 | 330 | +306.1 |
@@ -41,23 +45,7 @@
 | intrinsic.n_violations | 48 | 10 | -38 |
 | intrinsic.theta_bins | 48 | 48 | +0 |
 | intrinsic.validity_per_winding.10 | 0.4516 | 0.4743 | +0.0227 |
-| intrinsic.validity_per_winding.100 | 0.4891 | 0.5048 | +0.01566 |
-| intrinsic.validity_per_winding.101 | 0.4895 | 0.5046 | +0.01513 |
-| intrinsic.validity_per_winding.102 | 0.4926 | 0.5046 | +0.01199 |
-| intrinsic.validity_per_winding.103 | 0.49 | 0.5047 | +0.01466 |
-| intrinsic.validity_per_winding.104 | 0.4896 | 0.5048 | +0.01525 |
-| intrinsic.validity_per_winding.105 | 0.4885 | 0.5048 | +0.01626 |
-| intrinsic.validity_per_winding.106 | 0.4883 | 0.5049 | +0.01665 |
-| intrinsic.validity_per_winding.107 | 0.4878 | 0.5048 | +0.01704 |
-| intrinsic.validity_per_winding.108 | 0.4884 | 0.5051 | +0.01664 |
-| intrinsic.validity_per_winding.109 | 0.4869 | 0.5052 | +0.01831 |
 | intrinsic.validity_per_winding.11 | 0.4516 | 0.4773 | +0.0257 |
-| intrinsic.validity_per_winding.110 | 0.4864 | 0.5056 | +0.01924 |
-| intrinsic.validity_per_winding.111 | 0.4857 | 0.5058 | +0.02018 |
-| intrinsic.validity_per_winding.112 | 0.4847 | 0.5069 | +0.02222 |
-| intrinsic.validity_per_winding.113 | 0.484 | 0.507 | +0.02304 |
-| intrinsic.validity_per_winding.114 | 0.4838 | 0.5077 | +0.0239 |
-| intrinsic.validity_per_winding.115 | 0.4835 | 0.5072 | +0.0237 |
 | intrinsic.validity_per_winding.12 | 0.4516 | 0.4819 | +0.03024 |
 | intrinsic.validity_per_winding.13 | 0.4516 | 0.4839 | +0.03226 |
 | intrinsic.validity_per_winding.14 | 0.4516 | 0.4869 | +0.03531 |
@@ -146,5 +134,21 @@
 | intrinsic.validity_per_winding.97 | 0.4876 | 0.505 | +0.01739 |
 | intrinsic.validity_per_winding.98 | 0.488 | 0.5049 | +0.01689 |
 | intrinsic.validity_per_winding.99 | 0.4884 | 0.5048 | +0.01634 |
+| intrinsic.validity_per_winding.100 | 0.4891 | 0.5048 | +0.01566 |
+| intrinsic.validity_per_winding.101 | 0.4895 | 0.5046 | +0.01513 |
+| intrinsic.validity_per_winding.102 | 0.4926 | 0.5046 | +0.01199 |
+| intrinsic.validity_per_winding.103 | 0.49 | 0.5047 | +0.01466 |
+| intrinsic.validity_per_winding.104 | 0.4896 | 0.5048 | +0.01525 |
+| intrinsic.validity_per_winding.105 | 0.4885 | 0.5048 | +0.01626 |
+| intrinsic.validity_per_winding.106 | 0.4883 | 0.5049 | +0.01665 |
+| intrinsic.validity_per_winding.107 | 0.4878 | 0.5048 | +0.01704 |
+| intrinsic.validity_per_winding.108 | 0.4884 | 0.5051 | +0.01664 |
+| intrinsic.validity_per_winding.109 | 0.4869 | 0.5052 | +0.01831 |
+| intrinsic.validity_per_winding.110 | 0.4864 | 0.5056 | +0.01924 |
+| intrinsic.validity_per_winding.111 | 0.4857 | 0.5058 | +0.02018 |
+| intrinsic.validity_per_winding.112 | 0.4847 | 0.5069 | +0.02222 |
+| intrinsic.validity_per_winding.113 | 0.484 | 0.507 | +0.02304 |
+| intrinsic.validity_per_winding.114 | 0.4838 | 0.5077 | +0.0239 |
+| intrinsic.validity_per_winding.115 | 0.4835 | 0.5072 | +0.0237 |
 | intrinsic.violated_bin_fraction | 0.001036 | 0.0002181 | -0.0008179 |
 | intrinsic.z_bins | 10 | 10 | +0 |
