@@ -81,7 +81,7 @@ than it is.** That list is a regression harness: it pins bugs we already know
 how to describe, and it is what keeps them from coming back. It is not a claim
 of exhaustiveness, and no mutation score is. Every independent review round run
 against this suite has found fresh survivors: across the three counter-mutation
-campaigns documented below, the reviewers wrote 78 counter-mutations and 63
+campaigns documented below, the review rounds wrote 78 counter-mutations and 63
 survived on first contact (8 of 8, then 13 of 15, then 42 of 55); each survivor
 has since been given a test built to discriminate it. (An earlier revision of
 this paragraph quoted a larger aggregate that no shipped artifact reproduces;

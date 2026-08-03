@@ -180,7 +180,7 @@ MUTATIONS = [
      "accept unloadable fit inputs without refusing"),
     # Batch four, answering the 2026-07-29 review of v0.3: the rewritten
     # sheet metric and the unseen block had almost no mutation coverage, and
-    # both reviewers found surviving counter-mutations there.
+    # both review rounds found surviving counter-mutations there.
     ("metrics.py",
      '    for key, (da, db) in (("row", (1, 0)), ("col", (0, 1))):',
      '    for key, (da, db) in (("col", (0, 1)),):',
