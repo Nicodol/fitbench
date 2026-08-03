@@ -279,7 +279,8 @@ Held-out, per patch (then aggregated):
 - **winding-number agreement**: when `winding.tif` is present, difference between relative winding
   deltas in the patch annotation and deltas of assigned winding ids. **Never exercised on real
   data**: 0 of the 4,922 Paris 4 verified patches carry a `winding.tif`, so every real report
-  prints `winding agreement: None`. It is validated on synthetic fixtures only, and it saturates
+  prints `winding agreement: not computed` (with the reason spelled out; the JSON keeps `null`
+  for machines). It is validated on synthetic fixtures only, and it saturates
   at 1.0 for any patch whose annotation stays inside the modal winding, whatever that annotation
   contains. Do not read a 1.0 here as evidence until a corpus with real winding grids exists.
 - **normal agreement**: angle between patch quad normals and the matched surface normals

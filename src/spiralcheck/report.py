@@ -74,31 +74,51 @@ def _md_table(rows: list[list[str]], header: list[str]) -> str:
     return "\n".join(out)
 
 
-def write_report(
-    out_dir: str | Path,
-    scores: list[PatchScore] | None,
-    aggregate: dict | None,
-    intrinsic: IntrinsicReport | None,
-    family: dict[int, QuadSurface] | None = None,
-    meta: dict | None = None,
-    overlay_slices: int = 2,
-) -> Path:
-    out_dir = Path(out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
+def _explain(text: str) -> list[str]:
+    """One italic reading-guide line under a section heading: the report must
+    be interpretable on its own, without opening DESIGN.md three files away."""
+    return [f"*{text}*", ""]
 
-    payload: dict = {"meta": meta or {}}
-    if aggregate is not None:
-        payload["heldout_aggregate"] = aggregate
-        payload["heldout_patches"] = [s.to_dict() for s in (scores or [])]
-    if intrinsic is not None:
-        payload["intrinsic"] = intrinsic.to_dict()
-    (out_dir / "report.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+def render_markdown(payload: dict, overlay_files: list[str] | None = None) -> str:
+    """Render the Markdown summary purely from the report payload (the exact
+    dict persisted as report.json), so the .md is a view of the .json and can
+    be regenerated from it at any time (``scripts/rerender_report_md.py``).
+    Every number shown here exists in the payload or is a ratio of two of its
+    fields; the renderer adds wording, never measurements.
+
+    ``overlay_files`` lists the PNG file names written next to the report by
+    this scoring run; a re-render from JSON does not know them and omits the
+    section rather than guessing.
+    """
+    meta = payload.get("meta") or {}
+    aggregate = payload.get("heldout_aggregate")
+    scores = payload.get("heldout_patches") or []
+    intrinsic = payload.get("intrinsic")
 
     lines = ["# spiralcheck report", ""]
     if meta:
         lines += [f"- {k}: {v}" for k, v in meta.items()] + [""]
+        listed = meta.get("patches_dir_listed_in_manifest")
+        n_heldout = meta.get("manifest_n_heldout")
+        if listed is not None and n_heldout is not None and listed < n_heldout:
+            lines += _explain(
+                f"The scored directory offers {listed} of the manifest's "
+                f"{n_heldout} held-out patches: a z window legitimately "
+                "restricts the exam to the fitted slab. A cherry-pick would "
+                "look the same, which is why both counts are recorded here."
+            )
     if aggregate is not None:
         lines += ["## Held-out aggregate", ""]
+        lines += _explain(
+            "Distances from held-out patch points to the nearest fitted "
+            "winding, in voxels of the mesh grid. Sheet consistency is the "
+            "fraction of a patch's points landing on one continuous sheet: "
+            "1.0 means the whole patch sits on one sheet, a 50/50 sheet "
+            "switch scores ~0.5. Definitions: DESIGN.md (Metrics v0); scored "
+            "reference runs to compare against: examples/ in the spiralcheck "
+            "repository."
+        )
         lines += [
             _md_table(
                 [
@@ -120,6 +140,13 @@ def write_report(
         unseen = aggregate.get("unseen")
         if leakage is not None:
             lines += ["## Evidence leakage vs fit inputs", ""]
+            lines += _explain(
+                "Share of scored points lying within touching distance of the "
+                "fit's own input surfaces. Overlapping patch selections leak "
+                "evidence through any name-level split; points this close "
+                "were physically available to the fit, whatever the split "
+                "says, and only the rest counts as unseen below."
+            )
             lines += [
                 _md_table(
                     [[k.replace("_", " "), f"{v * 100:.1f}%" if k.startswith("frac") else str(v)]
@@ -151,8 +178,13 @@ def write_report(
                 f"## Unseen evidence only (points > {unseen['unseen_min_dist']:g} "
                 "vox from every fit input)"
             )
+            lines += [heading, ""]
+            lines += _explain(
+                "The same metrics, restricted to the points no fit input came "
+                "near: these are the numbers to quote when claiming evidence "
+                "was withheld."
+            )
             lines += [
-                heading, "",
                 _md_table(
                     [
                         ["patches used / excluded (too few unseen points)",
@@ -170,40 +202,94 @@ def write_report(
                 "",
             ]
         rows = [
-            [s.patch_id, str(s.n_points), f"{s.dist_p50:.2f}", f"{s.dist_p99:.2f}",
-             f"{s.frac_within_tau * 100:.0f}%", str(s.modal_winding),
-             f"{s.sheet_consistency:.2f}"]
-            for s in sorted(scores or [], key=lambda s: -s.dist_p99)
+            [s["patch_id"], str(s["n_points"]), f"{s['dist_p50']:.2f}", f"{s['dist_p99']:.2f}",
+             f"{s['frac_within_tau'] * 100:.0f}%", str(s["modal_winding"]),
+             f"{s['sheet_consistency']:.2f}"]
+            for s in sorted(scores, key=lambda s: -s["dist_p99"])
         ]
-        lines += ["## Per patch (worst first)", "",
-                  _md_table(rows, ["patch", "pts", "p50", "p99", "<tau", "winding", "sheet cons."]), ""]
+        lines += ["## Per patch (worst first)", ""]
+        lines += _explain(
+            "modal wind. is the winding id most of the patch's points matched "
+            "(an identity, not a score; the JSON field is modal_winding). "
+            "Every offered patch is scored whatever its size: weigh rows with "
+            "few points accordingly."
+        )
+        lines += [
+            _md_table(rows, ["patch", "pts", "p50", "p99", "<tau", "modal wind.", "sheet cons."]),
+            "",
+        ]
     if intrinsic is not None:
         lines += ["## Intrinsic checks", ""]
+        lines += _explain(
+            "Ground-truth-free checks of the winding family itself, along "
+            "rays from the umbilicus: winding ids must appear in increasing "
+            "radial order (violations are crossings), and consecutive-winding "
+            "gaps should be near the run's pitch (collapsed: near zero; "
+            "inflated: well past it). Bins span the meshes' actual z and "
+            "theta extent, not --z-range, so offender locations may fall "
+            "slightly outside the declared window."
+        )
+        n_bins = intrinsic["n_bins_checked"]
+        inflated_cell = (
+            f"{intrinsic['n_inflated']} ({intrinsic['n_inflated'] / n_bins * 100:.2f}%)"
+            if n_bins
+            else str(intrinsic["n_inflated"])
+        )
         lines += [
             _md_table(
                 [
-                    ["median pitch (vox)", f"{intrinsic.median_pitch:.2f}"],
-                    ["bins checked", str(intrinsic.n_bins_checked)],
+                    ["median pitch (vox)", f"{intrinsic['median_pitch']:.2f}"],
+                    ["bins checked", str(n_bins)],
                     ["violations (crossings)",
-                     f"{intrinsic.n_violations} ({intrinsic.violated_bin_fraction * 100:.2f}%)"],
+                     f"{intrinsic['n_violations']} ({intrinsic['violated_bin_fraction'] * 100:.2f}%)"],
                     ["collapsed gaps",
-                     f"{intrinsic.n_collapsed} ({intrinsic.collapsed_bin_fraction * 100:.2f}%)"],
-                    ["inflated gaps", str(intrinsic.n_inflated)],
+                     f"{intrinsic['n_collapsed']} ({intrinsic['collapsed_bin_fraction'] * 100:.2f}%)"],
+                    ["inflated gaps", inflated_cell],
                 ],
                 ["check", "value"],
             ),
             "",
         ]
-        if intrinsic.worst:
+        if intrinsic["worst"]:
             rows = [
                 [w["kind"], f"{w['gap']:.2f}", str(w["inner_winding"]),
                  f"{w['z_range'][0]:.0f}..{w['z_range'][1]:.0f}",
                  f"{w['theta_range'][0]:.2f}..{w['theta_range'][1]:.2f}"]
-                for w in intrinsic.worst[:10]
+                for w in intrinsic["worst"][:10]
             ]
             lines += ["### Worst offenders", "",
                       _md_table(rows, ["kind", "gap", "inner wind", "z", "theta"]), ""]
-    (out_dir / "report.md").write_text("\n".join(lines), encoding="utf-8")
+    if overlay_files:
+        lines += ["## Overlays", ""]
+        lines += _explain(
+            "Slice images written next to this report. Gray points are "
+            "winding-mesh vertices; held-out patch points are colored by "
+            "distance to the nearest winding, capped at tau (everything at "
+            "or past tau shows the same maximal color)."
+        )
+        lines += [f"- {name}" for name in overlay_files] + [""]
+    return "\n".join(lines)
+
+
+def write_report(
+    out_dir: str | Path,
+    scores: list[PatchScore] | None,
+    aggregate: dict | None,
+    intrinsic: IntrinsicReport | None,
+    family: dict[int, QuadSurface] | None = None,
+    meta: dict | None = None,
+    overlay_slices: int = 2,
+) -> Path:
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    payload: dict = {"meta": meta or {}}
+    if aggregate is not None:
+        payload["heldout_aggregate"] = aggregate
+        payload["heldout_patches"] = [s.to_dict() for s in (scores or [])]
+    if intrinsic is not None:
+        payload["intrinsic"] = intrinsic.to_dict()
+    (out_dir / "report.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
     if scores is not None:
         # Remove overlays from a previous scoring of a different z span, so a
@@ -214,16 +300,22 @@ def write_report(
         # next to a report that describes a different one.
         for stale in out_dir.glob("overlay_z*.png"):
             stale.unlink()
+    overlay_files: list[str] = []
     if family and scores and overlay_slices > 0:
         all_z = np.concatenate([s.point_zyx[:, 0] for s in scores])
         z_lo, z_hi = float(all_z.min()), float(all_z.max())
         dz = max((z_hi - z_lo) / max(overlay_slices, 1), 1.0)
         for i in range(overlay_slices):
             zc = z_lo + (i + 0.5) * (z_hi - z_lo) / overlay_slices
+            name = f"overlay_z{int(zc):05d}.png"
             overlay_slice(
-                family, scores, zc, dz, out_dir / f"overlay_z{int(zc):05d}.png",
+                family, scores, zc, dz, out_dir / name,
                 tau=aggregate["tau"] if aggregate else 6.0,
             )
+            overlay_files.append(name)
+    (out_dir / "report.md").write_text(
+        render_markdown(payload, overlay_files), encoding="utf-8"
+    )
     return out_dir / "report.json"
 
 

@@ -15,7 +15,11 @@
 - manifest_n_heldout: 985
 - fit_inputs_hash_audit: clean
 
+*The scored directory offers 94 of the manifest's 985 held-out patches: a z window legitimately restricts the exam to the fitted slab. A cherry-pick would look the same, which is why both counts are recorded here.*
+
 ## Held-out aggregate
+
+*Distances from held-out patch points to the nearest fitted winding, in voxels of the mesh grid. Sheet consistency is the fraction of a patch's points landing on one continuous sheet: 1.0 means the whole patch sits on one sheet, a 50/50 sheet switch scores ~0.5. Definitions: DESIGN.md (Metrics v0); scored reference runs to compare against: examples/ in the spiralcheck repository.*
 
 | metric | value |
 |---|---|
@@ -28,6 +32,8 @@
 
 ## Evidence leakage vs fit inputs
 
+*Share of scored points lying within touching distance of the fit's own input surfaces. Overlapping patch selections leak evidence through any name-level split; points this close were physically available to the fit, whatever the split says, and only the rest counts as unseen below.*
+
 | measure | value |
 |---|---|
 | n input patches | 541 |
@@ -37,6 +43,8 @@
 | frac within 6 vox | 72.3% |
 
 ## Unseen evidence only (points > 2 vox from every fit input)
+
+*The same metrics, restricted to the points no fit input came near: these are the numbers to quote when claiming evidence was withheld.*
 
 | metric | value |
 |---|---|
@@ -49,7 +57,9 @@
 
 ## Per patch (worst first)
 
-| patch | pts | p50 | p99 | <tau | winding | sheet cons. |
+*modal wind. is the winding id most of the patch's points matched (an identity, not a score; the JSON field is modal_winding). Every offered patch is scored whatever its size: weigh rows with few points accordingly.*
+
+| patch | pts | p50 | p99 | <tau | modal wind. | sheet cons. |
 |---|---|---|---|---|---|---|
 | auto_grown_20260524200130489_sel_20260524_200712_12 | 375 | 6.06 | 20.62 | 49% | 104 | 0.23 |
 | auto_grown_20260525070018371_sel_20260525_070935_25 | 49 | 8.08 | 20.60 | 35% | 51 | 0.33 |
@@ -148,13 +158,15 @@
 
 ## Intrinsic checks
 
+*Ground-truth-free checks of the winding family itself, along rays from the umbilicus: winding ids must appear in increasing radial order (violations are crossings), and consecutive-winding gaps should be near the run's pitch (collapsed: near zero; inflated: well past it). Bins span the meshes' actual z and theta extent, not --z-range, so offender locations may fall slightly outside the declared window.*
+
 | check | value |
 |---|---|
 | median pitch (vox) | 20.30 |
 | bins checked | 46344 |
 | violations (crossings) | 45 (0.10%) |
 | collapsed gaps | 98 (0.21%) |
-| inflated gaps | 71 |
+| inflated gaps | 71 (0.15%) |
 
 ### Worst offenders
 

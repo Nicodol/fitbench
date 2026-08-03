@@ -1,21 +1,25 @@
 # spiralcheck report
 
 - spiralcheck: 0.4.0
-- meshes: G:\projets\vesuvius\runs\sparse2\2026-07-28_s1_slice-10600-10900_0-patch_sparse2\meshes\fitted_sparse2
-- patches: G:\projets\vesuvius\windows\z10600_10900\heldout_strict
+- meshes: <meshes>
+- patches: <patches>
 - variant: spliced
 - n_windings: 106
 - tau: 6.0
 - z_range: 10600,10900
-- umbilicus: G:\projets\vesuvius\spiral-dataset\PHercParis4\umbilicus.json
-- manifest: G:\projets\vesuvius\spiralcheck\examples\PHercParis4_v1_split_manifest.json
-- fit_inputs: G:\projets\vesuvius\windows\z10600_10900\verified_fit
+- umbilicus: <umbilicus>
+- manifest: <manifest>
+- fit_inputs: <fit_inputs>
 - unseen_min_dist: 2.0
 - patches_dir_listed_in_manifest: 98
 - manifest_n_heldout: 985
 - fit_inputs_hash_audit: clean
 
+*The scored directory offers 98 of the manifest's 985 held-out patches: a z window legitimately restricts the exam to the fitted slab. A cherry-pick would look the same, which is why both counts are recorded here.*
+
 ## Held-out aggregate
+
+*Distances from held-out patch points to the nearest fitted winding, in voxels of the mesh grid. Sheet consistency is the fraction of a patch's points landing on one continuous sheet: 1.0 means the whole patch sits on one sheet, a 50/50 sheet switch scores ~0.5. Definitions: DESIGN.md (Metrics v0); scored reference runs to compare against: examples/ in the spiralcheck repository.*
 
 | metric | value |
 |---|---|
@@ -28,6 +32,8 @@
 
 ## Evidence leakage vs fit inputs
 
+*Share of scored points lying within touching distance of the fit's own input surfaces. Overlapping patch selections leak evidence through any name-level split; points this close were physically available to the fit, whatever the split says, and only the rest counts as unseen below.*
+
 | measure | value |
 |---|---|
 | n input patches | 541 |
@@ -37,6 +43,8 @@
 | frac within 6 vox | 72.3% |
 
 ## Unseen evidence only (points > 2 vox from every fit input)
+
+*The same metrics, restricted to the points no fit input came near: these are the numbers to quote when claiming evidence was withheld.*
 
 | metric | value |
 |---|---|
@@ -49,7 +57,9 @@
 
 ## Per patch (worst first)
 
-| patch | pts | p50 | p99 | <tau | winding | sheet cons. |
+*modal wind. is the winding id most of the patch's points matched (an identity, not a score; the JSON field is modal_winding). Every offered patch is scored whatever its size: weigh rows with few points accordingly.*
+
+| patch | pts | p50 | p99 | <tau | modal wind. | sheet cons. |
 |---|---|---|---|---|---|---|
 | auto_grown_20260420220618223_region_000 | 79 | 318.22 | 329.59 | 0% | 115 | 1.00 |
 | auto_grown_20260421165403705_sel_20260604_081020_2 | 1192 | 190.18 | 255.02 | 0% | 115 | 1.00 |
@@ -148,13 +158,15 @@
 
 ## Intrinsic checks
 
+*Ground-truth-free checks of the winding family itself, along rays from the umbilicus: winding ids must appear in increasing radial order (violations are crossings), and consecutive-winding gaps should be near the run's pitch (collapsed: near zero; inflated: well past it). Bins span the meshes' actual z and theta extent, not --z-range, so offender locations may fall slightly outside the declared window.*
+
 | check | value |
 |---|---|
 | median pitch (vox) | 19.44 |
 | bins checked | 45842 |
 | violations (crossings) | 10 (0.02%) |
 | collapsed gaps | 52 (0.11%) |
-| inflated gaps | 2 |
+| inflated gaps | 2 (0.00%) |
 
 ### Worst offenders
 
