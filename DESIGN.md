@@ -400,7 +400,8 @@ The windcheck standard, adopted:
 - Synthetic ideal spiral + analytic patches (unit tests, no download).
 - PHerc. Paris 4 spiral-input dataset (~50 GB, HF `scrollprize/datasets` bucket, sync complete:
   4,922/4,922 verified patch dirs).
-- Candidate second scroll: PHerc1218 public input pack (vesuvius-sheet-tools thread).
+- Second scroll: PHerc1218 public input pack (vesuvius-sheet-tools thread), used by the
+  section 7 feasibility case study in VALIDATION.md.
 
 ## Mutation audit (2026-07-27, extended 2026-07-28)
 

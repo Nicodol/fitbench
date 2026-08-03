@@ -204,4 +204,5 @@ and does not mean.
   candidates), and
   [herculaneum-scroll-tools](https://github.com/axiosdevs/herculaneum-scroll-tools) (CT-consistency
   audit, constraint verification).
-- The vesuvius-sheet-tools thread's public PHerc1218 input pack is a candidate second test case.
+- The vesuvius-sheet-tools thread's public PHerc1218 input pack became the section 7
+  second-scroll case study: its parity fit reproduced and scored unmodified (VALIDATION.md).

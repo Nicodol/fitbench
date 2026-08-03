@@ -163,6 +163,26 @@ numbers computed on evidence the fit had seen, a normal-agreement row that
 compared two different estimators, and a sheet-consistency rule whose entire
 published gain came from one mis-rated patch.
 
+**The quality scale, answered on identical sealed evidence**
+
+Section 8 of VALIDATION.md asks what the pair above cannot: does a *better*
+fit score better? Two twin runs on the same window (same seed, same pinned
+code and docker image, same Kaggle T4, 162-key config identical) differ in
+exactly one key: `num_training_steps`, 1,500 vs 6,000. The analysis plan
+was fixed before any result existed and ships verbatim with its SHA-256
+(`examples/analysis_plan_quality2*.md`). In the pre-registered order: the
+primary criterion — paired distance deltas — is honestly **not met**, both
+tails span zero. The three declared secondary metrics all exclude zero in
+the long run's favor: sheet consistency +0.209, within-tau +0.060, normal
+agreement 16.1 degrees better. villa's own satisfaction metric ranks the
+twins the same way (6/389 vs 84/389 patches satisfied; the verbatim rows
+ship in `examples/`): where both instruments can see, they agree, and the
+held-out metrics see it on evidence the fit was never given. A consumer-GPU
+vs T4 rerun reproduces the reference's unseen aggregate within 0.26%
+relative. A second-scroll feasibility case study — the community PHerc1218
+parity fit, reproduced and scored unmodified — is VALIDATION.md section 7;
+it deliberately claims no quality verdict, and says why.
+
 **Related work, and what is genuinely new here**
 
 The pairing this suite rests on is not our invention, and the paper behind
