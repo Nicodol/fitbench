@@ -3,9 +3,10 @@
 All artifacts here come from the runs and protocols documented in
 [VALIDATION.md](../VALIDATION.md) (sections 5 to 8). Everything marked *replayable*
 regenerates byte-identically from this repository alone; the reports themselves need the
-run meshes and the patch data. Each report's `meta` block records its parameters, and,
-for the section 7 and 8 runs, the exact input paths; the two section 6 reports ship with
-their local paths redacted to `<meshes>`-style placeholders.
+run meshes and the patch data. Each report's `meta` block records its parameters, with
+local filesystem prefixes redacted: the section 6 reports to bare `<meshes>`-style
+placeholders, the section 7 and 8 reports to `<runs>`/`<data>` prefixes that keep the
+run-folder names the reading note below relies on.
 
 ## Scored reports (`real_run_*_report.{json,md}`)
 

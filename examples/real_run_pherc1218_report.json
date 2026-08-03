@@ -1,15 +1,15 @@
 {
   "meta": {
     "spiralcheck": "0.4.0",
-    "meshes": "D:/projets/vesuvius/quality2_results/run_p1218/2026-08-01_pherc1218_slice-9700-10500_1-patch_repro-z9700-10500-s1/meshes/fitted_repro-z9700-10500-s1",
-    "patches": "D:/projets/vesuvius/kaggle_work/pherc1218/heldout",
+    "meshes": "<runs>/run_p1218/2026-08-01_pherc1218_slice-9700-10500_1-patch_repro-z9700-10500-s1/meshes/fitted_repro-z9700-10500-s1",
+    "patches": "<data>/pherc1218/heldout",
     "variant": "spliced",
     "n_windings": 154,
     "tau": 6.0,
     "z_range": "9700,10500",
-    "umbilicus": "D:/projets/vesuvius/kaggle_work/pherc1218/umbilicus.json",
+    "umbilicus": "<data>/pherc1218/umbilicus.json",
     "manifest": null,
-    "fit_inputs": "D:/projets/vesuvius/kaggle_work/pherc1218/fit_inputs",
+    "fit_inputs": "<data>/pherc1218/fit_inputs",
     "unseen_min_dist": 2.0
   },
   "heldout_aggregate": {

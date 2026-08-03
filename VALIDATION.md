@@ -586,7 +586,9 @@ uncertainty immaterial for the table above.
 
 Artifacts: `examples/real_run_cheap2_report.{json,md}`,
 `examples/real_run_quality2_report.{json,md}`, and the three bootstrap
-tables `examples/bootstrap_*.txt`.
+tables `examples/bootstrap_*.txt`. The reports' `meta` path prefixes are
+redacted to `<runs>`/`<data>` placeholders, run-folder names kept; every
+measured field is untouched.
 
 ## Reproduce
 
