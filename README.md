@@ -2,7 +2,10 @@
 
 **Held-out geometric evaluation for whole-scroll surface fits.**
 
-Built for the "devise better evaluation suites" item of the Vesuvius Challenge
+It scores whole-scroll spiral fits from
+[ScrollPrize/villa](https://github.com/ScrollPrize/villa)'s `fit_spiral`, or any
+producer of `tifxyz` winding surfaces, from the output meshes alone. Built for
+the "devise better evaluation suites" item of the Vesuvius Challenge
 [2026 open problems](https://scrollprize.org/2026_open_problems). MIT license.
 
 ## Getting started
@@ -68,7 +71,8 @@ uv run python scripts/mutation_check.py
 
 The `compare` and `bootstrap_ci` lines reproduce `examples/compare_smoke8_vs_sparse2.md`
 and `examples/bootstrap_quality2_vs_cheap2.txt` byte for byte; the last line is the
-54-mutation audit of the test suite itself (several minutes; it prints its progress).
+54-mutation audit of the test suite itself (5 to 15 minutes depending on the machine;
+it prints its progress).
 [examples/README.md](examples/README.md) indexes every shipped artifact.
 [SUBMISSION.md](SUBMISSION.md) is the narrative overview of the whole suite;
 [DESIGN.md](DESIGN.md) holds the metric definitions and protocol;
