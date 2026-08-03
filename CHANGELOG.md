@@ -44,6 +44,14 @@ Markdown reports were verified numerically identical.
     in the README and its own banner, instead of "several minutes";
   - exit codes stated in every subcommand's `--help` (they were only in score and
     compare), and `.gitignore` covers `split_out/`.
+- The section 8 provenance ships instead of being attested: the pre-registered
+  analysis plan, verbatim (`examples/analysis_plan_quality2.fr.md`, the French
+  original; SHA-256 pinned against end-of-line conversion by `.gitattributes`;
+  provenance, both time anchors and an English translation in the companion
+  `.md`), and the twins' villa satisfaction rows
+  (`examples/real_run_{cheap2,quality2}_villa_metrics.txt`, verbatim from the
+  run logs). The README header now also names villa's `fit_spiral` as what
+  gets scored, with the producer-agnostic claim kept.
 - Python floor lowered from a tacit >= 3.14 to >= 3.12 (full suite verified on 3.12,
   3.13 and 3.14; resolved dependency versions unchanged), and CI now tests both ends.
 - The whole round was itself gated by a fifth review round before publication (four
