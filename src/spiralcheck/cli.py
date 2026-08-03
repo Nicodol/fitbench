@@ -226,6 +226,82 @@ def cmd_compare(args) -> int:
     return 0
 
 
+# Demo geometry: one deliberately damaged synthetic scroll. The swap exchanges
+# two windings inside a theta band (the classic sheet switch: distances stay
+# small, identity is wrong); the collapse pulls one winding onto its inner
+# neighbor (a spacing defect distances also cannot see from the patch side).
+_DEMO_PITCH = 10.0
+_DEMO_SWAP = (13, 14, (1.0, 2.2))
+_DEMO_COLLAPSE = (16, (4.0, 5.0), 0.9)
+# (winding, theta range) per held-out patch: some on the planted defects, some
+# on healthy regions so the null rows are visible in the same table.
+_DEMO_PATCHES = [
+    (11, (0.4, 1.6)),
+    (12, (2.0, 3.2)),
+    (13, (1.2, 2.4)),
+    (14, (1.0, 2.2)),
+    (15, (4.2, 5.4)),
+    (16, (4.0, 5.2)),
+    (12, (5.0, 6.2)),
+    (17, (0.2, 1.4)),
+]
+
+
+def cmd_demo(args) -> int:
+    from .io_tifxyz import save_tifxyz
+    from .synthetic import collapse_gap, make_family, sample_patch, swap_band
+
+    out = Path(args.out)
+    scroll = make_family(num_windings=8, first_winding=10, pitch=_DEMO_PITCH, z_count=20)
+    fit = scroll
+    if not args.clean:
+        w1, w2, band = _DEMO_SWAP
+        fit = swap_band(scroll, w1, w2, band)
+        winding, band, factor = _DEMO_COLLAPSE
+        fit = collapse_gap(fit, winding, band, factor=factor)
+
+    meshes = out / "meshes"
+    for wid, surface in fit.items():
+        save_tifxyz(surface, meshes / f"w{wid:03d}", uuid=f"w{wid:03d}")
+    patches_dir = out / "heldout"
+    for i, (wid, band) in enumerate(_DEMO_PATCHES):
+        patch = sample_patch(wid, _DEMO_PITCH, band, (8.0, 68.0))
+        save_tifxyz(patch, patches_dir / f"patch{i}_w{wid}", uuid=f"patch{i}_w{wid}")
+
+    kind = "clean (null control)" if args.clean else "defective"
+    print(f"demo scroll: 8 windings (w10..w17), pitch {_DEMO_PITCH:g} vox, {kind}")
+    if not args.clean:
+        print(
+            f"planted: windings {_DEMO_SWAP[0]}/{_DEMO_SWAP[1]} swapped in theta "
+            f"[{_DEMO_SWAP[2][0]:g}, {_DEMO_SWAP[2][1]:g}) (sheet switch), and "
+            f"winding {_DEMO_COLLAPSE[0]}'s gap collapsed by {_DEMO_COLLAPSE[2]:.0%} "
+            f"in theta [{_DEMO_COLLAPSE[1][0]:g}, {_DEMO_COLLAPSE[1][1]:g})"
+        )
+    print(f"scoring {len(_DEMO_PATCHES)} held-out patches sampled from the clean scroll...")
+    rc = main([
+        "score", "--meshes", str(meshes), "--patches", str(patches_dir),
+        "--out", str(out / "report"), "--variant", "plain", "--umbilicus", "0,0",
+    ])
+    if rc != 0:
+        return rc
+    print()
+    if args.clean:
+        print("null control: every alarm above must be silent (distances ~0, "
+              "consistency 1.0, no intrinsic violations).")
+    else:
+        print("read the report: the swap fires the identity checks (intrinsic "
+              "violations; sheet consistency < 1 where a patch straddles the "
+              "swap edge) while its distances stay near zero, because a surface "
+              "one winding out of place is still close to something. The "
+              "collapse shows up under collapsed gaps and as the large "
+              "distances on the collapsed winding's patch.")
+        print("compare against the clean twin:")
+        print(f"  spiralcheck demo --clean --out {out.parent / (out.name + '_clean')}")
+        print(f"  spiralcheck compare {out.parent / (out.name + '_clean') / 'report' / 'report.json'} "
+              f"{out / 'report' / 'report.json'} --out {out.parent / 'demo_compare.md'}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="spiralcheck")
     parser.add_argument("--version", action="version", version=f"spiralcheck {__version__}")
@@ -287,6 +363,18 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("report_b")
     p.add_argument("--out", required=True)
     p.set_defaults(func=cmd_compare)
+
+    p = sub.add_parser(
+        "demo",
+        help="generate a small synthetic scroll with planted defects and score "
+        "it: a full run of the tool with no data needed",
+    )
+    p.add_argument("--out", required=True, help="directory for the demo scroll and its report")
+    p.add_argument(
+        "--clean", action="store_true",
+        help="plant no defect: the null control, where every alarm must stay silent",
+    )
+    p.set_defaults(func=cmd_demo)
 
     args = parser.parse_args(argv)
     if not getattr(args, "func", None):
