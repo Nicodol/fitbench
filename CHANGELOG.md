@@ -27,6 +27,23 @@ Markdown reports were verified numerically identical.
   states its inputs, draws and seed in its output.
 - `examples/README.md` indexes every shipped artifact; `scripts/rerender_report_md.py`
   regenerates any `report.md` from its `report.json`.
+- A second first-contact pass (same profile: fresh clone, Windows, no GPU, no data)
+  before publication:
+  - the follow-up commands `demo` prints are `uv run`-prefixed, so they copy-paste
+    outside an activated venv (the bare form printed `command not found` for the
+    Getting-started user who had just typed `uv run spiralcheck demo`);
+  - a ninth demo patch crosses the theta seam into the next winding with its relative
+    `winding.tif`, so winding agreement runs end to end on the zero-data path (1.0 on
+    the clean twin, dropped by the swap) and the seam's structural effect on the raw
+    single-winding fraction is visible on the null control instead of only documented;
+  - intrinsic worst offenders interleave kinds by severity rank: 80 swap crossings can
+    no longer crowd the 60 collapsed gaps out of the demo report's table, and inflated
+    gaps are localized at all (they were counted but never listed). Shipped example
+    reports are byte-identical: each report.json carries its own offender list;
+  - the mutation audit announces 5 to 15 minutes (measured 13 on a mid-range laptop)
+    in the README and its own banner, instead of "several minutes";
+  - exit codes stated in every subcommand's `--help` (they were only in score and
+    compare), and `.gitignore` covers `split_out/`.
 - Python floor lowered from a tacit >= 3.14 to >= 3.12 (full suite verified on 3.12,
   3.13 and 3.14; resolved dependency versions unchanged), and CI now tests both ends.
 - The whole round was itself gated by a fifth review round before publication (four

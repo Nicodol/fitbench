@@ -330,7 +330,12 @@ _DEMO_PITCH = 10.0
 _DEMO_SWAP = (13, 14, (1.0, 2.2))
 _DEMO_COLLAPSE = (16, (4.0, 5.0), 0.9)
 # (winding, theta range) per held-out patch: some on the planted defects, some
-# on healthy regions so the null rows are visible in the same table.
+# on healthy regions so the null rows are visible in the same table. The last
+# band runs past 2*pi: it crosses the theta seam into the next winding and
+# carries its relative winding.tif annotation, so winding agreement is
+# exercised end to end (and the seam legitimately puts that patch's raw
+# single-winding fraction below 1, defects or not: that is what winding ids do
+# at the seam, and why sheet consistency exists).
 _DEMO_PATCHES = [
     (11, (0.4, 1.6)),
     (12, (2.0, 3.2)),
@@ -340,6 +345,7 @@ _DEMO_PATCHES = [
     (16, (4.0, 5.2)),
     (12, (5.0, 6.2)),
     (17, (0.2, 1.4)),
+    (12, (5.6, 8.4)),
 ]
 
 
@@ -369,8 +375,11 @@ def cmd_demo(args) -> int:
         save_tifxyz(surface, meshes / f"w{wid:03d}", uuid=f"w{wid:03d}")
     patches_dir = out / "heldout"
     for i, (wid, band) in enumerate(_DEMO_PATCHES):
-        patch = sample_patch(wid, _DEMO_PITCH, band, (8.0, 68.0))
-        save_tifxyz(patch, patches_dir / f"patch{i}_w{wid}", uuid=f"patch{i}_w{wid}")
+        multi = band[1] > 2 * math.pi
+        patch = sample_patch(wid, _DEMO_PITCH, band, (8.0, 68.0), with_winding_grid=multi)
+        end_w = wid + int(band[1] // (2 * math.pi))
+        name = f"patch{i}_w{wid}" + (f"-w{end_w}" if multi else "")
+        save_tifxyz(patch, patches_dir / name, uuid=name)
 
     kind = "clean (null control)" if args.clean else "defective"
     print(f"demo scroll: 8 windings (w10..w17), pitch {_DEMO_PITCH:g} vox, {kind}")
@@ -391,18 +400,22 @@ def cmd_demo(args) -> int:
     print()
     if args.clean:
         print("null control: every alarm above must be silent (distances ~0, "
-              "consistency 1.0, no intrinsic violations).")
+              "sheet consistency 1.0, winding agreement 1.0, no intrinsic "
+              "violations). One patch crosses the theta seam, so its raw "
+              "single-winding fraction sits below 1 even here: the seam is "
+              "why the sheet metric exists.")
     else:
-        print("read the report: the swap fires the identity checks (intrinsic "
-              "violations; sheet consistency < 1 where a patch straddles the "
-              "swap edge) while its distances stay near zero, because a surface "
+        print("read the report: the swap fires the identity checks (winding "
+              "agreement on the seam-crossing patch, intrinsic violations, "
+              "and sheet consistency < 1 where a patch straddles the swap "
+              "edge) while its distances stay near zero, because a surface "
               "one winding out of place is still close to something. The "
               "collapse shows up under collapsed gaps and as the large "
               "distances on the collapsed winding's patch.")
         clean_out = out.parent / (out.name + "_clean")
         print("compare against the clean twin:")
-        print(f"  spiralcheck demo --clean --out {_q(clean_out)}")
-        print(f"  spiralcheck compare {_q(clean_out / 'report' / 'report.json')} "
+        print(f"  uv run spiralcheck demo --clean --out {_q(clean_out)}")
+        print(f"  uv run spiralcheck compare {_q(clean_out / 'report' / 'report.json')} "
               f"{_q(out / 'report' / 'report.json')} --out {_q(out.parent / 'demo_compare.md')}")
     return 0
 
@@ -509,6 +522,7 @@ def main(argv: list[str] | None = None) -> int:
 
     p = sub.add_parser(
         "intrinsic", help="ground-truth-free checks only (no patches needed)", **fmt,
+        epilog="exit codes: 0 checks written; 2 invalid option or unreadable input.",
     )
     p.add_argument(
         "--meshes", required=True, default=argparse.SUPPRESS,
@@ -526,7 +540,8 @@ def main(argv: list[str] | None = None) -> int:
         "split", help="seeded held-out split of a patch directory", **fmt,
         epilog="patches are grouped into near-duplicate families before "
         "splitting, and a whole family goes to one side; see DESIGN.md, "
-        "Held-out protocol.",
+        "Held-out protocol. exit codes: 0 split written; 2 invalid option "
+        "or unreadable input.",
     )
     p.add_argument(
         "--src", required=True, default=argparse.SUPPRESS,
@@ -563,6 +578,7 @@ def main(argv: list[str] | None = None) -> int:
         "demo",
         help="generate a small synthetic scroll with planted defects and score "
         "it: a full run of the tool with no data needed", **fmt,
+        epilog="exit codes: 0 demo written and scored; 2 invalid option.",
     )
     p.add_argument(
         "--out", required=True, default=argparse.SUPPRESS,

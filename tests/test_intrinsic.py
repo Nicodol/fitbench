@@ -28,6 +28,8 @@ def test_clean_family_is_silent():
     rep = intrinsic_report(family())
     assert rep.n_violations == 0
     assert rep.n_collapsed == 0
+    assert rep.n_inflated == 0
+    assert rep.worst == []
     assert abs(rep.median_pitch - PITCH) / PITCH < 0.02
     assert all(v == 1.0 for v in rep.validity_per_winding.values())
 
@@ -114,6 +116,14 @@ def test_inflated_gap_fires():
     rep = intrinsic_report(fam)
     assert rep.n_inflated > 0
     assert rep.n_violations == 0
+    # ...and localized in the offender list (they used to be counted but
+    # never listed): in the band, on the pair that straddles the hole.
+    infl = [w for w in rep.worst if w["kind"] == "inflated"]
+    assert infl, "worst list must localize inflated gaps"
+    slack = 2 * np.pi / rep.theta_bins
+    for rec in infl:
+        assert band_overlaps(rec, (3.0, 4.0), slack)
+        assert rec["inner_winding"] == w0 - 1
 
 
 def test_resolve_umbilicus_forms():

@@ -284,8 +284,9 @@ def main() -> int:
         return 1
 
     total = len(MUTATIONS)
-    print(f"{total} mutations, one full pytest run each: expect several "
-          "minutes (a few seconds per run on a desktop CPU)")
+    print(f"{total} mutations, one full pytest run each: expect 5 to 15 "
+          "minutes (a few seconds per run on a fast desktop CPU, around "
+          "fifteen on a laptop)")
     caught, missed = 0, []
     for i, (filename, old, new, label) in enumerate(MUTATIONS, start=1):
         path = SRC / filename

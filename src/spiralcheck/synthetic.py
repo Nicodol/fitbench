@@ -72,8 +72,17 @@ def sample_patch(
     center_yx: tuple[float, float] = (0.0, 0.0),
     normal_jitter: float = 0.0,
     rng: np.random.Generator | None = None,
+    with_winding_grid: bool = False,
 ) -> QuadSurface:
-    """An analytic patch lying exactly on one winding of the ideal scroll.
+    """An analytic patch lying exactly on the ideal scroll's surface.
+
+    A ``theta_range`` extending past 2*pi follows the spiral into the next
+    winding(s), like a real band crossing the theta seam. With
+    ``with_winding_grid`` the patch carries the matching relative winding
+    annotation (``winding.tif`` convention: values are relative, the first
+    column past a seam is unlabeled, and an all-zero grid is the format's
+    "single winding" sentinel, which is exactly what a band staying inside
+    the base winding produces).
 
     ``normal_jitter`` displaces each vertex radially (the surface normal of an
     ideal spiral is close to radial) by N(0, jitter), for realism tests.
@@ -90,7 +99,20 @@ def sample_patch(
         radial = radial / np.maximum(norm, 1e-9)
         offsets = rng.normal(0.0, normal_jitter, size=zyxs.shape[:2])[..., None]
         zyxs[..., 1:] = zyxs[..., 1:] + radial * offsets
-    return QuadSurface(zyxs=zyxs.astype(np.float32), scale=np.array([1.0, 1.0], dtype=np.float32))
+    winding_grid = None
+    if with_winding_grid:
+        rel = np.floor(theta_values / (2 * np.pi)).astype(np.float32)
+        # A quad whose corners straddle the seam belongs to no single relative
+        # winding, so the first column past each seam stays unlabeled (NaN):
+        # the agreement metric skips non-finite quad means, which excludes
+        # the straddling quads instead of forcing an arbitrary side.
+        rel[np.nonzero(np.diff(rel) != 0)[0] + 1] = np.nan
+        winding_grid = np.broadcast_to(rel[None, :], (rows, cols)).copy()
+    return QuadSurface(
+        zyxs=zyxs.astype(np.float32),
+        scale=np.array([1.0, 1.0], dtype=np.float32),
+        winding=winding_grid,
+    )
 
 
 def _theta_columns(surface: QuadSurface, theta_band: tuple[float, float]) -> np.ndarray:

@@ -53,6 +53,33 @@ def test_patch_lies_on_its_winding():
     assert other.dist.min() > PITCH * 0.5
 
 
+def test_seam_crossing_patch_and_winding_grid():
+    # A band past 2*pi continues on the spiral: radius keeps growing smoothly
+    # into the next winding instead of wrapping back onto the same one.
+    patch = sample_patch(11, PITCH, theta_range=(5.6, 8.4), z_range=(8.0, 40.0),
+                         with_winding_grid=True)
+    r = radii(patch)[0]
+    assert (np.diff(r) > 0).all()
+    assert r[-1] > 12 * PITCH  # last column is well into winding 12
+    # The relative winding.tif grid steps 0 -> 1 at the seam, with the
+    # seam-straddling column unlabeled (NaN), and is constant along z.
+    assert isinstance(patch.winding, np.ndarray)
+    row = patch.winding[0]
+    theta = np.linspace(5.6, 8.4, len(row))
+    step = int(np.nonzero(np.diff(np.floor(theta / (2 * np.pi))) != 0)[0][0]) + 1
+    assert np.isnan(row[step])
+    finite = np.isfinite(row)
+    assert finite.sum() == len(row) - 1
+    np.testing.assert_array_equal(row[finite], np.floor(theta / (2 * np.pi))[finite])
+    assert set(np.unique(row[finite])) == {0.0, 1.0}
+    np.testing.assert_array_equal(patch.winding, np.broadcast_to(row, patch.winding.shape))
+    # A band inside one winding yields the format's all-zero "single winding"
+    # sentinel; without the flag there is no grid at all.
+    single = sample_patch(11, PITCH, (0.5, 2.0), (8.0, 40.0), with_winding_grid=True)
+    assert isinstance(single.winding, np.ndarray) and (single.winding == 0.0).all()
+    assert sample_patch(11, PITCH, (0.5, 2.0), (8.0, 40.0)).winding is None
+
+
 def test_swap_band_moves_geometry():
     family = make_family(num_windings=4, first_winding=10, pitch=PITCH)
     swapped = swap_band(family, 11, 12, theta_band=(1.0, 2.0))

@@ -13,3 +13,5 @@ data/
 /report/
 /cmp.md
 /demo_compare.md
+# The natural --out when trying `spiralcheck split` on the demo patches.
+/split_out/

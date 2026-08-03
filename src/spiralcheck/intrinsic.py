@@ -63,7 +63,7 @@ class IntrinsicReport:
     n_collapsed: int
     collapsed_bin_fraction: float
     n_inflated: int
-    worst: list[dict]  # top offenders: bin, winding pair, gap
+    worst: list[dict]  # top offenders, kinds interleaved by severity rank: bin, winding pair, gap
     validity_per_winding: dict[int, float]
 
     def to_dict(self) -> dict:
@@ -145,24 +145,38 @@ def intrinsic_report(
     collapsed = (~violations) & (gaps_arr < collapse_frac * median_pitch)
     inflated = gaps_arr > inflate_frac * median_pitch
 
-    order = np.argsort(gaps_arr)
+    # One offender list, kinds interleaved by severity rank (rank k of every
+    # kind precedes rank k+1 of any kind): an abundant kind must not crowd the
+    # others out of the table's top rows. Severity within a kind: most
+    # negative gap (violation), closest to zero (collapsed), farthest above
+    # the pitch (inflated).
+    ranked: dict[str, np.ndarray] = {}
+    for kind, mask, sort_key in (
+        ("violation", violations, gaps_arr),
+        ("collapsed", collapsed, gaps_arr),
+        ("inflated", inflated, -gaps_arr),
+    ):
+        idx = np.nonzero(mask)[0]
+        ranked[kind] = idx[np.argsort(sort_key[idx], kind="stable")]
     worst = []
-    for k in order[:top_n]:
-        g, wid_inner, zi, ti = records[k]
-        if g >= collapse_frac * median_pitch:
+    for rank in range(top_n):
+        if len(worst) >= top_n:
             break
-        worst.append(
-            {
-                "gap": g,
-                "kind": "violation" if g <= 0 else "collapsed",
-                "inner_winding": wid_inner,
-                "z_range": [float(z_edges[zi]), float(z_edges[zi + 1])],
-                "theta_range": [
-                    float(-np.pi + ti * 2 * np.pi / theta_bins),
-                    float(-np.pi + (ti + 1) * 2 * np.pi / theta_bins),
-                ],
-            }
-        )
+        for kind, idx in ranked.items():
+            if rank < len(idx) and len(worst) < top_n:
+                g, wid_inner, zi, ti = records[int(idx[rank])]
+                worst.append(
+                    {
+                        "gap": g,
+                        "kind": kind,
+                        "inner_winding": wid_inner,
+                        "z_range": [float(z_edges[zi]), float(z_edges[zi + 1])],
+                        "theta_range": [
+                            float(-np.pi + ti * 2 * np.pi / theta_bins),
+                            float(-np.pi + (ti + 1) * 2 * np.pi / theta_bins),
+                        ],
+                    }
+                )
 
     n = len(gaps_arr)
     return IntrinsicReport(
