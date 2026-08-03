@@ -10,12 +10,15 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+        # Oldest supported floor and current: the floor is a promise
+        # (README says >= 3.12), so CI holds both ends of it.
+        python: ["3.12", "3.14"]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
         with:
-          python-version: "3.14"
+          python-version: ${{ matrix.python }}
       - run: uv sync --group dev
       - run: uv run pytest -q
       - run: uv run ruff check src tests
