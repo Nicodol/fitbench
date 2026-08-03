@@ -29,6 +29,10 @@ Markdown reports were verified numerically identical.
   regenerates any `report.md` from its `report.json`.
 - Python floor lowered from a tacit >= 3.14 to >= 3.12 (full suite verified on 3.12,
   3.13 and 3.14; resolved dependency versions unchanged), and CI now tests both ends.
+- The whole round was itself gated by a fifth review round before publication (four
+  blind reviewers: adversarial, claims audit against artifacts, upstream check, test
+  quality). What it caught, and the fix for each finding with its test, is in the
+  "Answer the pre-push review round" commit.
 
 ## v0.4.0 (2026-07-28 to 2026-08-02)
 

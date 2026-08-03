@@ -156,7 +156,8 @@ metric agrees. Cross-platform reproduction of the section 6 reference within
 feasibility case study (section 7) and the measured shared-annotation
 channel (section 6). A first-contact usability round (still August) added the
 demo subcommand, the reading guides in the reports, and this Getting started;
-no metric changed ([CHANGELOG.md](CHANGELOG.md)).
+no metric changed, and a fifth review round (four blind reviewers) gated the
+publication ([CHANGELOG.md](CHANGELOG.md)).
 
 Four external-style review rounds (adversarial code review, claims audit against
 artifacts, upstream check, test-quality audit writing its own counter-mutations)
