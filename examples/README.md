@@ -51,10 +51,20 @@ reveal more leakage, never hide it.
 
 ## Cross-checks against villa's own instrument
 
-- `real_run_smoke8_villa_metrics.txt`, `real_run_sparse2_villa_metrics.txt`: the
+- `real_run_smoke8_villa_metrics.txt`, `real_run_sparse2_villa_metrics.txt`,
+  `real_run_cheap2_villa_metrics.txt`, `real_run_quality2_villa_metrics.txt`: the
   satisfaction metrics printed by villa's `fit_spiral.py` at the end of each section 6
-  run, quoted verbatim from the run logs, so the reports can be compared against an
-  independent measurement made through the fit's own transform.
+  and section 8 Paris 4 run, quoted verbatim from the run logs, so the reports can be
+  compared against an independent measurement made through the fit's own transform.
+  The section 8 pair is where the two instruments rank the runs the same way
+  (`satisfied_patches` 6/389 vs 84/389, VALIDATION section 8).
+
+## Pre-registered analysis plan (section 8)
+
+- `analysis_plan_quality2.md`: provenance, SHA-256 and an English translation of the
+  plan that bound the section 8 analysis, committed before any result of the pair
+  existed. `analysis_plan_quality2.fr.md` is the verbatim French original from the
+  private working log; the hash in the companion file is of this file as shipped.
 
 ## Overlay
 

@@ -1,0 +1,11 @@
+# villa fit_spiral satisfaction metrics, printed at the end of the run.
+# Run: cheap2 (VALIDATION section 8: the 1,500-step twin, re-run on a Kaggle
+# T4 with the same inputs and settings as smoke8), PHerc. Paris 4,
+# z 10600-10900, 120 windings, 1,500 steps, 2026-08-02.
+# Verbatim excerpt from the run log (stdout of scripts/spiral/fit_spiral.py).
+satisfied_patches = 6/389 (1.5%)
+satisfied_patches_area_weighted = 606000.0/92459200.0 (0.7%)
+boundary_satisfied_patches = 6/389 (1.5%)
+satisfied_area = 20712056.2/92459200.0 (22.4%)
+satisfied_unattached_pcls = 7/24 (29.2%)
+satisfied_unattached_pcl_points = 206/385 (53.5%)

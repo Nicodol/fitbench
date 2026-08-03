@@ -547,8 +547,14 @@ The analysis plan was fixed before any result existed: comparisons, paired
 bootstrap (20,000 draws, the same `scripts/bootstrap_ci.py --unseen`),
 **paired distance deltas as the primary criterion**, the other declared
 metrics reported with intervals but never promoted, no post-hoc metrics. The
-plan lives in a private working log; an independent review pass verified its
-git timestamp (9h50 before the first result) and that it is unchanged since.
+plan ships verbatim
+([`examples/analysis_plan_quality2.fr.md`](examples/analysis_plan_quality2.fr.md);
+provenance, SHA-256 and an English translation in
+[`examples/analysis_plan_quality2.md`](examples/analysis_plan_quality2.md)),
+from a private working log; an independent review pass verified its git
+timestamp (9h50 before the first result, commit to commit) and that it is
+unchanged since, re-verified against the log's history when the text was
+extracted.
 
 Results, in the pre-registered order, both runs scored against the same
 sealed evidence as section 6 (per-patch unseen counts identical across all
@@ -585,8 +591,11 @@ by tens of lines. The 0.26% twin bound is what makes this residual
 uncertainty immaterial for the table above.
 
 Artifacts: `examples/real_run_cheap2_report.{json,md}`,
-`examples/real_run_quality2_report.{json,md}`, and the three bootstrap
-tables `examples/bootstrap_*.txt`. The reports' `meta` path prefixes are
+`examples/real_run_quality2_report.{json,md}`, the three bootstrap
+tables `examples/bootstrap_*.txt`, the villa satisfaction rows verbatim
+(`examples/real_run_cheap2_villa_metrics.txt`,
+`examples/real_run_quality2_villa_metrics.txt`), and the pre-registered
+plan (`examples/analysis_plan_quality2.md`). The reports' `meta` path prefixes are
 redacted to `<runs>`/`<data>` placeholders, run-folder names kept; every
 measured field is untouched.
 

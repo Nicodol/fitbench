@@ -1,0 +1,11 @@
+# villa fit_spiral satisfaction metrics, printed at the end of the run.
+# Run: quality2 (VALIDATION section 8: the 6,000-step twin; same seed, code,
+# image and T4 as cheap2, num_training_steps the one changed key), PHerc.
+# Paris 4, z 10600-10900, 120 windings, 6,000 steps, 2026-08-02.
+# Verbatim excerpt from the run log (stdout of scripts/spiral/fit_spiral.py).
+satisfied_patches = 84/389 (21.6%)
+satisfied_patches_area_weighted = 13664200.0/92459200.0 (14.8%)
+boundary_satisfied_patches = 86/389 (22.1%)
+satisfied_area = 56124743.8/92459200.0 (60.7%)
+satisfied_unattached_pcls = 16/24 (66.7%)
+satisfied_unattached_pcl_points = 280/385 (72.7%)

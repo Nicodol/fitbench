@@ -1,0 +1,4 @@
+# The shipped pre-registered plan is hash-pinned (SHA-256 published in
+# examples/analysis_plan_quality2.md): no end-of-line conversion, ever,
+# so the on-disk bytes match the hash on every platform.
+examples/analysis_plan_quality2.fr.md -text
