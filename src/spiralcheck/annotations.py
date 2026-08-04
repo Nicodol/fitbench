@@ -21,10 +21,19 @@ strip's snapped median (and the reprojected target to stay within 6 scan
 voxels). That measure needs the checkpoint, torch and a CUDA device, and it
 reports on the constraints the fit consumed.
 
-This module computes the same quantity from the **exported meshes plus the
-umbilicus** — no checkpoint, no torch, no GPU — so a finished run folder can be
-checked after the fact, and so a producer with no villa checkpoint at all can be
-checked at all. The transposition is one substitution: where villa reads an
+This module asks the winding half of that question from the **exported meshes
+plus the umbilicus** — no checkpoint, no torch, no GPU — so a finished run
+folder can be checked after the fact, and so a producer with no villa
+checkpoint at all can be checked at all. It is deliberately *not* the same
+quantity: villa's verdict is a conjunction, and a point on the correct winding
+but more than 6 voxels from the reprojected target fails there, whereas here
+such a point leaves the denominator instead of failing. Villa also filters a
+collection before scoring it — longest contiguous run in z, then decimation to
+a minimum point spacing — so the two do not even score the same points: on the
+section 10 corpus 8 of the 24 collections villa reports differ in size from
+ours. Read the two as neighbours, not as a reimplementation.
+
+The transposition is one substitution: where villa reads an
 unwrapped shifted radius out of its transform, we read the continuous winding
 coordinate `u = winding_id + column / columns` off the nearest exported face
 (the same coordinate sheet consistency is built on, continuous across the theta
@@ -38,8 +47,9 @@ index must not:
 Its absolute value carries an arbitrary offset (the mesh column origin and the
 umbilicus azimuth origin need not coincide), so only differences are read: a
 point disagrees when its `N` is at least half a turn from the collection's
-median. Half a turn is the same decision boundary villa uses, and the same one
-`sheet_components` uses.
+median. Half a turn is the midpoint between two integer winding indices, and
+the boundary `sheet_components` already uses. It is **not** villa's: villa
+admits 0.45 pitches, so its spiral-space band is 11% tighter than this one.
 
 Two limits are structural rather than incidental, and both are reported next to
 every number:
@@ -73,8 +83,11 @@ from .geometry import surface_distance
 from .intrinsic import resolve_umbilicus
 from .metrics import WindingFamilySoup
 
-# Half a turn: the boundary between "the same winding" and "the next one".
-# Matches SHEET_MAX_JUMP_TURNS and villa's 0.45-pitch spiral-space tolerance.
+# Half a turn: the midpoint between two integer winding indices, and so the
+# boundary between "the same winding" and "the next one". Matches
+# SHEET_MAX_JUMP_TURNS. Villa's own spiral-space tolerance is 0.45 pitches
+# (`satisfaction_metrics.py`, `satisfaction_radius_tolerance`), i.e. 11%
+# tighter; this is a nearest-integer decision, not a reimplementation of that.
 WRAP_DECISION_TURNS = 0.5
 
 _JSON_VERSION_KEY = "vc_pointcollections_json_version"
@@ -124,6 +137,12 @@ def load_point_collections(paths) -> list[PointCollection]:
     Mirrors `scripts/spiral/point_collection.py`: the version key is checked,
     points are keyed by integer id and sorted by it, and a point's position is
     `zyx` when present, else `p` reversed (villa stores `p` as x, y, z).
+
+    The `zyx` branch mirrors villa's *in-memory* idiom rather than a file
+    convention: VC3D writes `p` only (`PointCollections.cpp`), so against files
+    villa itself produced the branch never fires. It is kept because villa's
+    loader has it, and because a caller handing us villa's in-memory dicts
+    should get villa's answer.
     """
     if isinstance(paths, (str, Path)):
         paths = [paths]

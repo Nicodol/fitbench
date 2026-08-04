@@ -93,8 +93,9 @@ reveal more leakage, never hide it.
   the decidability tolerance, where the undecidable evidence sits in z, and the join
   against villa's own `satisfied_fitted.json`. Read it with VALIDATION section 10, which
   states the three bounds on the headline number: the annotations are fit *inputs*, under
-  half the in-window points are decidable, and 620 of the 719 are machine-traced under
-  human supervision rather than clicked.
+  half the in-window points are decidable, and 620 of the 719 are resampled from a path
+  laid down by an annotation tool rather than clicked one at a time — by one of three
+  modes the file does not record.
   `uv run python scripts/winding_annotations_real.py --meshes <meshes> --pcl <abs_winding.json> --pcl <relative_windings.json> --pcl <same_windings.json> --umbilicus <umbilicus.json> --satisfied <satisfied_fitted.json> --variant plain --tau 6 --z-range 10600,10900 --out <out.json>`
   (one scoring pass over 719 points, a few minutes). Path prefixes redacted to
   `<runs>`/`<data>` like the section 7 to 9 artifacts; every measured field untouched.

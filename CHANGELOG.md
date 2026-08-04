@@ -28,10 +28,14 @@ own published numbers were wrong, is in [VALIDATION.md](VALIDATION.md).
 - **Correction to VALIDATION.md section 6.** It described the 719 annotation points as
   "manually clicked in VC3D", which is true of 99 of them and wrong about the other 620.
   The `same_wrapNNN` collections are written in one commit by VC3D's
-  `SameWrapAnnotationTool`, which Otsu-thresholds and skeletonises the displayed slice,
-  snaps two human-chosen endpoints to it and traces Dijkstra between them: machine-traced
-  along the papyrus in the scan, under human supervision. The section now says so, and
-  section 10 measures what the distinction is worth.
+  `SameWrapAnnotationTool`, which lays down a path and resamples it at a fixed spacing:
+  those 620 are not clicked one at a time. What the tool does *not* let anyone assert is
+  how the path was found — it offers three modes, two image-driven and one a hand-drawn
+  polyline consulting no image, and the JSON records neither the mode nor anything that
+  tells them apart. An earlier draft of this entry claimed all 620 were traced along the
+  papyrus in the scan; that is true of two modes out of three and not establishable per
+  collection. The section now says so, and section 10 measures what the distinction is
+  worth.
 - `scripts/planted_defects_real.py` gains a `pitch_ramp` scenario: one pitch accumulated
   smoothly across a z band and held above it, reaching `pitch_band`'s end state without the
   one-grid-row radial wall a step leaves at each band edge. The difference between the two

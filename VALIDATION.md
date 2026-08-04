@@ -321,13 +321,12 @@ what the difference is worth: the 98 relative-winding points (plus one
 absolute anchor) carry a distinct `creation_time` per point, 0.65 to 1.4 s
 apart, which is a person clicking; the 620 `same_wrapNNN` points carry one
 identical timestamp per collection, because VC3D's `SameWrapAnnotationTool`
-writes a whole collection in a single commit. It builds one by
-Otsu-thresholding the displayed slice, skeletonising it, snapping two
-human-chosen endpoints to the skeleton, running Dijkstra between them along
-skeleton pixels, and sampling the resulting path at a fixed spacing
-(`SameWrapAnnotationTool.cpp`, `generatePreview`). So those points are traced
-by machine along the sheet *in the scan*, under human supervision, rather
-than clicked one by one. Those
+lays down a *path* and resamples it at a fixed spacing before writing the
+whole collection in one commit. Section 10 lists the three modes it offers —
+two of them image-driven, one a hand-drawn polyline that consults no image —
+and the fact that the file records neither which was used nor anything that
+would tell them apart. What holds for all 620 regardless is that they are
+resampled from a path rather than clicked one at a time. Those
 annotations lie on the papyrus sheet, so some run along surfaces the sealed
 patches cover: of the 51,679 sealed vertices in the window, 6 (0.01%) lie
 within 2 vox of an annotation point, 70 (0.14%) within tau = 6, and 385
@@ -931,25 +930,45 @@ matters enough to lead with, because section 6 previously called all 719
 |---|---:|---:|---|---|
 | `abs_winding.json` | 1 | 1 | 37.0, absolute | one human click |
 | `relative_windings.json` | 16 | 98 | 1..15, relative | **human clicks**: one distinct `creation_time` per point, median gap 0.65-1.4 s |
-| `same_windings.json` | 26 | 620 | `null` (same winding) | **machine-traced under human supervision**: one identical timestamp for every point of a collection |
+| `same_windings.json` | 26 | 620 | `null` (same winding) | **resampled from a path, not clicked point by point**: one identical timestamp for every point of a collection |
 
 The 620 come from VC3D's `SameWrapAnnotationTool`
-(`apps/VC3D/volume_viewers/annotation_tools/SameWrapAnnotationTool.cpp`). Its
-`generatePreview` Otsu-thresholds the displayed slice, skeletonises it
-(Guo-Hall thinning), snaps two human-chosen endpoints to the nearest skeleton
-pixel, runs Dijkstra between them over skeleton pixels only, samples the path
-at a fixed spacing, and `commit` writes the whole collection at once — hence
-the single timestamp. The human asserts "this path stays on one wrap" and
-accepts the result; the individual point positions follow the papyrus in the
-scan.
+(`apps/VC3D/volume_viewers/annotation_tools/SameWrapAnnotationTool.cpp`), which
+offers **three** ways to lay a path down, and the file does not record which
+one was used:
 
-That provenance cuts both ways and both should be said. The trace follows real
-sheet continuity in the CT, which is stronger evidence than a click at a
-guessed position. But its failure mode is correlated with the fit's: where two
-sheets touch, the skeleton can bridge them, the path changes wrap, and the
-"same wrap" assertion is then false in exactly the place a fit also fails. So
-the 620 are supervision, not ground truth, and the 98 clicked points are the
-only unambiguously human labels here.
+- `ConnectedComponents`, **the default** (`SameWrapAnnotationTool.hpp:102`):
+  one click picks a component of the skeletonised slice and the tool takes that
+  component's diameter path;
+- `ShortestPath`: the displayed slice is Otsu-thresholded and skeletonised
+  (Guo-Hall thinning), two human-chosen endpoints are snapped to the nearest
+  skeleton pixel, and Dijkstra runs between them at cost 1 on skeleton pixels
+  against 1e6 elsewhere, so the path follows the skeleton;
+- `Manual`: the human draws the polyline and **no image is consulted at all**
+  (`generatePreview` returns immediately for this mode; `beginManualPreview`
+  and `appendManualPreview` only accumulate clicked positions).
+
+All three then resample the path at a fixed spacing, and `commit` writes the
+collection in one go — which is what the single timestamp records. Two
+collections can also be merged afterwards, re-ordered and re-decimated, so
+"one commit" is not an invariant of what ends up in the file either.
+
+What survives all three modes, and is what the table above claims: these are
+**not 620 individually clicked points**. What does *not* survive, and an
+earlier draft of this section asserted it anyway: that the point positions
+follow the papyrus in the scan. That is true in the two image-driven modes and
+false in `Manual`, and since the JSON records neither the mode nor anything
+that distinguishes them, it cannot be established per collection from the
+artifact.
+
+So the honest reading is bounded on both sides. In the image-driven modes the
+trace follows real sheet continuity in the CT, which is stronger evidence than
+a click at a guessed position — but its failure mode is then correlated with
+the fit's, because where two sheets touch the skeleton can bridge them, the
+path changes wrap, and the "same wrap" assertion is false in exactly the place
+a fit also fails. In `Manual` mode neither the strength nor that particular
+weakness applies. Either way the 620 are supervision rather than ground truth,
+and the 98 clicked points are the only unambiguously human labels here.
 
 ### The measurement
 
@@ -1016,7 +1035,7 @@ Run `quality2`, `--variant plain`, tau = 6, z 10600-10900.
 |---|---:|---:|---:|---:|---:|---:|
 | all | 43 | 719 | 698 | 338 | 332 | **98.2%** |
 | relative (human clicks) | 17 | 99 | 89 | 82 | 81 | 98.8% |
-| same-winding (machine-traced) | 26 | 620 | 609 | 256 | 251 | 98.0% |
+| same-winding (path-resampled) | 26 | 620 | 609 | 256 | 251 | 98.0% |
 
 | Expectation, fixed before the run | Observed |
 |---|---|
@@ -1028,8 +1047,22 @@ Run `quality2`, `--variant plain`, tau = 6, z 10600-10900.
 
 ### Cross-check against villa's own verdict
 
-The interesting comparison is not the fractions, which measure different
-things, but which collections each instrument refuses to call clean. Of the 24
+**The two instruments do not score the same points, and that has to be said
+before any number is compared.** Villa filters an unattached collection first:
+it keeps only the longest contiguous id-sorted run inside its z window, drops
+what is left with fewer than two points, and decimates the rest to a minimum
+spacing of 16 voxels (`fit_spiral.py`, `unattached_pcl_min_point_spacing`).
+This suite applies a plain z mask and no decimation. Comparing the point
+counts collection by collection, **8 of the 24 differ** — all of them relative
+collections, whose human clicks fall closer together than 16 vox (`col92`: 4
+points villa, 7 here; `col247`: 9 against 14; `col158`: 7 against 10). So what
+follows compares two verdicts about the same annotation, not two scores over
+the same evidence, and per-collection arithmetic across the two only holds
+where the counts happen to match.
+
+With that stated: the interesting comparison is not the fractions, which
+measure different things, but which collections each instrument refuses to
+call clean. Of the 24
 collections `satisfied_fitted.json` scores, 2 are undecidable here and are
 excluded; of the remaining 22, the two instruments give the same verdict on
 17 (77.3%). Both flag `col247` and `same_wrap42`. **Neither instrument is
@@ -1042,7 +1075,9 @@ miss. Villa's satisfaction is a **conjunction**: right winding band *and*
 within 6 voxels of the reprojected target. A point on the correct winding in
 the wrong place fails villa and passes here. On `same_wrap44` villa reports
 9/22 while all 19 decidable points here sit on the annotated winding, so at
-least 10 points are "right winding, wrong place". That is not a disagreement
+least 10 points are "right winding, wrong place" — an inference the filter
+caveat above permits in this case, because `same_wrap44` is one of the 16
+collections where villa's count and ours agree exactly. That is not a disagreement
 about the geometry; it is this suite separating two failures villa's number
 merges — which is the same specificity question section 9 raises from the
 other end.
@@ -1077,8 +1112,8 @@ Not established, and none of this is a technicality:
   family falls 15.49 -> 10.83 -> 6.67 -> 5.23 -> 3.13 vox at z = 10604.4,
   10609.4, 10614.4, 10624.4, 10684.4. Read the agreement as a statement about
   mid-window evidence.
-- **620 of the 719 points are machine-traced**, so "agrees with a human" is
-  precise only for the 98 clicked ones (81 of 82 decidable).
+- **620 of the 719 points are resampled from a path, not clicked**, so "agrees
+  with a human" is precise only for the 98 clicked ones (81 of 82 decidable).
 - **An evenly split collection indicts both sides.** The reference is the
   collection's median, so a two-point collection whose points disagree reports
   both as offenders; the metric cannot say which is misplaced because the

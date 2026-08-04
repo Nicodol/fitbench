@@ -19,13 +19,19 @@ from spiralcheck.annotations import (
     load_point_collections,
     render_annotation_markdown,
     score_collection,
+    score_collections,
     write_annotation_report,
 )
 from spiralcheck.metrics import WindingFamilySoup
 from spiralcheck.synthetic import make_family
 
 PITCH = 10.0
-CENTER = (0.0, 0.0)
+# Deliberately off the origin, and asymmetric in y and x. With the umbilicus at
+# (0, 0) the azimuth correction is computed from coordinates that already are
+# the offset, so subtracting it, adding it, or ignoring it all agree — and a
+# whole family of real bugs becomes invisible. An independent audit found four
+# umbilicus mutations surviving for exactly that reason.
+CENTER = (37.0, -19.0)
 FIRST = 10
 
 
@@ -77,18 +83,37 @@ def test_loader_follows_villa_coordinate_and_ordering_conventions(tmp_path):
 
     A loader that took ``p`` as (z, y, x) would still run and still produce
     numbers, which is exactly why this is pinned.
+
+    The ids are written out of order, and chosen so that sorting them as
+    strings gives a different answer from sorting them as integers ("100" <
+    "12" < "3" lexicographically). Sequential ids in insertion order — the
+    obvious fixture — make integer-sort, string-sort and no-sort-at-all the
+    same permutation, so they pin the ordering claim only by appearance.
     """
-    path = write_pcl(
-        tmp_path,
-        "c.json",
-        [("col9", [([1.0, 2.0, 3.0], 5.0), ([4.0, 5.0, 6.0], 7.0)], {})],
-    )
+    payload = {
+        "vc_pointcollections_json_version": "1",
+        "collections": {
+            "1": {
+                "name": "col9",
+                "metadata": {},
+                "points": {
+                    "12": {"p": [4.0, 5.0, 6.0], "wind_a": 7.0},
+                    "3": {"p": [1.0, 2.0, 3.0], "wind_a": 5.0},
+                    "100": {"p": [7.0, 8.0, 9.0], "wind_a": 9.0},
+                },
+            }
+        },
+    }
+    path = tmp_path / "c.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
     (col,) = load_point_collections(path)
     assert col.name == "col9"
     assert col.source == "c.json"
-    np.testing.assert_allclose(col.zyx, [[3.0, 2.0, 1.0], [6.0, 5.0, 4.0]])
-    np.testing.assert_allclose(col.wind_a, [5.0, 7.0])
-    assert col.point_ids.tolist() == [1000, 1001]
+    assert col.point_ids.tolist() == [3, 12, 100]
+    np.testing.assert_allclose(
+        col.zyx, [[3.0, 2.0, 1.0], [6.0, 5.0, 4.0], [9.0, 8.0, 7.0]]
+    )
+    np.testing.assert_allclose(col.wind_a, [5.0, 7.0, 9.0])
     assert col.kind == "relative"
 
 
@@ -135,6 +160,10 @@ def test_mixed_annotation_drops_unannotated_points_and_says_so(tmp_path):
     (col,) = load_point_collections(
         write_pcl(tmp_path, "m.json", [("col1", points, {})])
     )
+    # A mixed collection carries annotations, so it is a relative one. Flipping
+    # the `any`/`all` in `kind` would silently reclassify it as same-winding,
+    # which would move its points between the two blocks section 10 publishes.
+    assert col.kind == "relative"
     score = score_collection(col, family_soup(), umbilicus=CENTER)
     assert score.n_unannotated_dropped == 1
     assert score.n_in_window == 2
@@ -226,7 +255,94 @@ def test_far_points_are_declined_not_assigned(tmp_path):
     assert score.n_in_window == 4
     assert score.n_within_tau == 3
     assert score.agreement == 1.0
+    # The percentile is over every in-window point, not only the decidable
+    # ones, so with three near points and one far the median stays sub-voxel
+    # while the max does not. Asserting only `dist_max > 1000` would let
+    # `dist_p50` be any other percentile.
+    assert score.dist_p50 < 1.0 < score.dist_max
     assert score.dist_max > 1000.0
+
+
+def test_tau_decides_at_the_stated_distance(tmp_path):
+    """A point at a deliberate 8 vox is decidable at tau = 10 and not at 6.
+
+    Without a point in that band the tolerance is unobservable: the fixture
+    points sit a twentieth of a voxel from the surface and the "far" one is
+    ten thousand away, so any tau between them scores identically and the
+    default 6.0 pins nothing. Section 10 publishes a tau sweep across exactly
+    this range.
+    """
+    # The displaced point goes *outside* the outermost winding, not between two
+    # sheets. At 0.8 of a pitch a radial offset lands next to the neighbouring
+    # winding instead: measured 1.95 vox from a surface and one whole turn off,
+    # which is section 9's myopia result, not a tolerance test.
+    outermost = FIRST + 7
+    points = [
+        (point_on_winding(outermost, 0.4, 20.0), None),
+        (point_on_winding(outermost, 0.6, 20.0), None),
+        (point_on_winding(outermost, 0.5, 20.0, radial_offset=8.0), None),
+    ]
+    (col,) = load_point_collections(
+        write_pcl(tmp_path, "tau.json", [("same_wrap12", points, {})])
+    )
+    soup = family_soup()
+    assert score_collection(col, soup, umbilicus=CENTER, tau=6.0).n_within_tau == 2
+    assert score_collection(col, soup, umbilicus=CENTER, tau=10.0).n_within_tau == 3
+    # The default is the one the CLI and the published run use.
+    assert score_collection(col, soup, umbilicus=CENTER).n_within_tau == 2
+
+
+def test_the_decision_boundary_sits_where_the_constant_says(tmp_path):
+    """Just inside half a turn agrees; just outside offends.
+
+    The clean fixtures land at ~0.005 turns and the broken ones at ~1.0, so
+    every threshold between roughly 0.1 and 0.5 scores them identically. These
+    two collections straddle the boundary deliberately.
+    """
+    from spiralcheck.metrics import SHEET_MAX_JUMP_TURNS
+
+    def offset_collection(name, turns):
+        points = [
+            (point_on_winding(13, 0.4, 20.0), None),
+            (point_on_winding(13, 0.5, 20.0), None),
+            (point_on_winding(13, 0.6, 20.0), None),
+            (point_on_winding(13, 0.55, 20.0, radial_offset=turns * PITCH), None),
+        ]
+        return load_point_collections(
+            write_pcl(tmp_path, f"{name}.json", [(name, points, {})])
+        )[0]
+
+    soup = family_soup()
+    inside = score_collection(
+        offset_collection("same_wrap13", 0.40), soup, umbilicus=CENTER, tau=10.0
+    )
+    outside = score_collection(
+        offset_collection("same_wrap14", 0.60), soup, umbilicus=CENTER, tau=10.0
+    )
+    assert (inside.n_within_tau, inside.n_agree) == (4, 4)
+    assert (outside.n_within_tau, outside.n_agree) == (4, 3)
+    assert WRAP_DECISION_TURNS == SHEET_MAX_JUMP_TURNS
+
+
+def test_wrap_index_spread_is_the_worst_agreeing_point(tmp_path):
+    """The spread is a maximum over the *agreeing* points, and section 10
+    quotes it as the instrument's noise floor against the 0.5 boundary. A
+    minimum, or a maximum taken over the offenders too, would make a marginal
+    verdict read as safe (or a safe one as marginal)."""
+    points = [(point_on_winding(13, t, 20.0), None) for t in (0.2, 0.4, 0.6)]
+    points.append((point_on_winding(13, 0.5, 20.0, radial_offset=PITCH), None))
+    (col,) = load_point_collections(
+        write_pcl(tmp_path, "spread.json", [("same_wrap15", points, {})])
+    )
+    score = score_collection(col, family_soup(), umbilicus=CENTER)
+    assert score.n_agree == 3
+    agreeing = np.abs(score.point_wrap_offset) < WRAP_DECISION_TURNS
+    assert score.wrap_index_spread == pytest.approx(
+        np.abs(score.point_wrap_offset[agreeing]).max()
+    )
+    # Strictly below the offender's whole turn, and below the boundary.
+    assert score.wrap_index_spread < 0.5 * WRAP_DECISION_TURNS
+    assert np.abs(score.point_wrap_offset).max() > 0.9
 
 
 def test_collection_with_no_decidable_point_reports_none_not_zero(tmp_path):
@@ -348,6 +464,96 @@ def test_kinds_are_aggregated_separately(tmp_path):
     assert agg["same-winding"]["n_points"] == 3
     assert agg["relative"]["n_points"] == 3
     assert agg["all"]["n_points"] == 6
+
+
+def test_score_collections_passes_every_option_through(tmp_path):
+    """The fan-out must thread tau, the umbilicus and z_range to each call.
+
+    Every other test here calls `score_collection` directly, but the published
+    artifact goes through `score_collections`. A refactor that stopped
+    forwarding any of the three would fall back to a default, reproduce none of
+    the section 10 numbers, and break no test. Each of the three is given a
+    value whose effect is visible.
+    """
+    # Outside the outermost winding, for the reason given in the tau test.
+    near_far = [
+        (point_on_winding(FIRST + 7, 0.4, 20.0), None),
+        (point_on_winding(FIRST + 7, 0.5, 20.0, radial_offset=8.0), None),
+    ]
+    windowed = [(point_on_winding(13, 0.4, z), None) for z in (20.0, 300.0)]
+    collections = load_point_collections(
+        write_pcl(
+            tmp_path,
+            "opts.json",
+            [("same_wrap16", near_far, {}), ("same_wrap17", windowed, {})],
+        )
+    )
+    soup = family_soup()
+
+    scores, _ = score_collections(
+        collections, soup, umbilicus=CENTER, tau=10.0, z_range=(0.0, 40.0)
+    )
+    assert scores[0].n_within_tau == 2  # tau=10 admits the 8-vox point
+    assert scores[0].tau == 10.0
+    assert scores[1].n_in_window == 1  # z_range drops the far-z point
+
+    defaults, _ = score_collections(collections, soup, umbilicus=CENTER)
+    assert defaults[0].n_within_tau == 1  # default tau=6 declines it
+    assert defaults[1].n_in_window == 2  # no z_range keeps both
+
+    # Without the umbilicus the azimuth is measured about the origin instead of
+    # the scroll axis, which moves the wrap index. If it were not forwarded,
+    # these two would agree.
+    no_umb, _ = score_collections(collections, soup, tau=10.0)
+    assert no_umb[0].point_wrap_offset is not None
+    assert not np.allclose(
+        no_umb[0].point_wrap_offset, scores[0].point_wrap_offset
+    )
+
+
+def test_aggregate_reports_every_regime_it_publishes(tmp_path):
+    """One fixture with all four regimes, and the whole aggregate asserted.
+
+    Section 10 publishes `n_points_in_window`, `n_points_within_tau`,
+    `n_points_agree`, `agreement`, `n_collections_decidable`,
+    `n_collections_perfect` and `n_collections_informative_perfect`. Fixtures
+    where every point is decidable and in window make several of those
+    interchangeable — `n_points_within_tau` computed from `n_in_window` would
+    publish 332/698 instead of 332/338 and pass — so this one deliberately has
+    an out-of-window point, an undecidable point, an offender, and a collection
+    that is undecidable outright.
+    """
+    good = [(point_on_winding(13, t, 20.0), None) for t in (0.2, 0.4, 0.6)]
+    good.append((point_on_winding(13, 0.5, 20.0, radial_offset=PITCH), None))
+    good.append(([9999.0, 9999.0, 20.0], None))  # in window, undecidable
+    good.append((point_on_winding(13, 0.3, 300.0), None))  # out of window
+    nowhere = [([9999.0, 9999.0, 20.0], None), ([9998.0, 9998.0, 20.0], None)]
+    collections = load_point_collections(
+        write_pcl(
+            tmp_path,
+            "agg.json",
+            [("same_wrap18", good, {}), ("same_wrap19", nowhere, {})],
+        )
+    )
+    _, aggregate = score_collections(
+        collections, family_soup(), umbilicus=CENTER, z_range=(0.0, 40.0)
+    )
+    assert aggregate["all"] == {
+        "n_collections": 2,
+        "n_collections_decidable": 1,
+        "n_collections_perfect": 0,
+        "n_collections_informative": 1,
+        "n_collections_informative_perfect": 0,
+        "n_points": 8,
+        "n_points_in_window": 7,
+        "n_points_within_tau": 4,
+        "n_points_agree": 3,
+        "agreement": pytest.approx(3 / 4),
+        "wrap_index_spread_max": aggregate["all"]["wrap_index_spread_max"],
+    }
+    assert aggregate["all"]["wrap_index_spread_max"] < 0.1
+    # An undecidable collection is not a perfect one, even though 0 == 0.
+    assert aggregate["same-winding"]["n_collections_decidable"] == 1
 
 
 def test_report_names_offenders_and_undecidable_collections(tmp_path):

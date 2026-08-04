@@ -215,8 +215,9 @@ no GPU (VALIDATION.md section 10). Three things bound that result and are
 stated wherever it is quoted: the annotations are **inputs to the run scored**,
 so it is constraint satisfaction and not a held-out number; under half the
 in-window points are decidable, mostly a window-edge artefact; and 620 of the
-719 points are traced by VC3D's annotation tool along a skeletonised CT slice
-under human supervision rather than clicked one by one.
+719 points are resampled from a path laid down by VC3D's annotation tool
+rather than clicked one by one — by one of three modes, only two of which
+consult the scan at all, and which the file does not record.
 
 ## Acknowledgments
 

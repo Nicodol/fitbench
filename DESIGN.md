@@ -56,7 +56,13 @@ them is not credible:
   `vc_tifxyz_winding` first. This is the closest prior art to what spiralcheck does, and it covers
   three of the same ideas. It scores *one surface* against *point collections*; it does not score
   a whole winding family against withheld tifxyz patches, and it carries no split protocol and no
-  leakage audit.
+  leakage audit. One further boundary, measured while building the section 10 check rather than
+  assumed: its `in_surface` metric skips any consecutive pair whose `winding_annotation` is NaN
+  (`core/src/surface_metrics.cpp`), and villa's C++ reader maps `wind_a: null` to NaN with no
+  zero-filling (`core/src/PointCollections.cpp`; the zero-fill lives only in villa's *Python*
+  loader). A `same_wrap` collection carries `null` on every point, so the closest shipped prior
+  art structurally cannot consume the 620 same-winding points at all — and its test is a
+  geodesic-to-euclidean ratio, not a winding-index verdict. That is the gap section 10 fills.
 - **`scripts/evaluation/eval_surface_tracer.py`** runs the surface *tracer* end to end against
   ground-truth wrap labels and aggregates the metrics above. It re-runs the pipeline rather than
   scoring an existing run folder, and it targets the tracer, not the spiral fit.
@@ -291,15 +297,22 @@ Held-out, per patch (then aggregated):
   Winding evidence on Paris 4 exists as villa **point collections** rather than as `winding.tif`
   grids, and `spiralcheck annotations` (`annotations.py`) scores a run against them from the
   exported meshes and the umbilicus, with no checkpoint and no GPU. It is villa's own pcl
-  satisfaction transposed: the continuous winding coordinate off the nearest exported face, minus
-  the azimuth the collection travels, minus the annotation, must stay constant. VALIDATION.md
-  section 10 reports 332 of 338 decidable points on a real run, with the disagreements at exactly
-  one turn and a decision margin 32x the instrument's noise floor. Three limits belong next to
-  that number and are repeated wherever it is quoted: those annotations are **fit inputs**, so it
-  is constraint satisfaction and not a held-out result; under half the in-window points are
-  decidable at tau = 6, mostly a window-edge artefact; and 620 of the 719 points are traced by
-  VC3D's `SameWrapAnnotationTool` along a skeletonised CT slice under human supervision rather
-  than clicked, so only 98 of them are unambiguously human labels.
+  satisfaction transposed *in one direction only*: the continuous winding coordinate off the
+  nearest exported face, minus the azimuth the collection travels, minus the annotation, must stay
+  constant. It is not villa's verdict recomputed — villa's is a conjunction that also fails a point
+  sitting far from its reprojected target, and villa decimates a collection to 16-voxel spacing
+  before scoring it, so on this corpus 8 of the 24 shared collections do not even contain the same
+  points on the two sides. VALIDATION.md
+  section 10 reports 332 of 338 decidable points on a real run, with the disagreements between
+  0.994 and 1.001 turns and a decision margin 32x the instrument's noise floor. Three limits belong
+  next to that number and are repeated wherever it is quoted: those annotations are **fit inputs**,
+  so it is constraint satisfaction and not a held-out result; under half the in-window points are
+  decidable at tau = 6, mostly a window-edge artefact (357 of the 360 declined points lie within
+  20 vox of a window edge); and 620 of the 719 points are resampled from a path laid down by VC3D's
+  `SameWrapAnnotationTool` rather than clicked one at a time. That tool offers three path modes,
+  two image-driven and one a hand-drawn polyline that consults no image, and the JSON records
+  neither which was used nor anything that distinguishes them — so "traced along the sheet in the
+  scan" cannot be asserted per collection, and only 98 of the 719 are unambiguously human labels.
 - **normal agreement**: angle between patch quad normals and the matched surface normals
   (p50/p90), sign-agnostic.
 - **fraction within tau** doubles as coverage: the share of a patch's scored quad centers with a
