@@ -76,6 +76,18 @@ def _check_umbilicus_shape(data, spec: str) -> None:
         _die(f"--umbilicus: {spec}: {exc}")
 
 
+def _parse_z_range(spec: str | None) -> tuple[float, float] | None:
+    if not spec:
+        return None
+    try:
+        parts = [float(v) for v in spec.split(",")]
+    except ValueError:
+        parts = []
+    if len(parts) != 2 or not all(map(math.isfinite, parts)) or parts[0] >= parts[1]:
+        _die(f"--z-range expects 'z_min,z_max', got {spec!r}")
+    return (parts[0], parts[1])
+
+
 def cmd_score(args) -> int:
     from .intrinsic import intrinsic_report
     from .io_tifxyz import load_run_windings
@@ -96,15 +108,7 @@ def cmd_score(args) -> int:
             f"--unseen-min-dist must be a positive number, got {args.unseen_min_dist}: "
             "a non-positive threshold would report seen evidence as unseen"
         )
-    z_range = None
-    if args.z_range:
-        try:
-            parts = [float(v) for v in args.z_range.split(",")]
-        except ValueError:
-            parts = []
-        if len(parts) != 2 or not all(map(math.isfinite, parts)) or parts[0] >= parts[1]:
-            _die(f"--z-range expects 'z_min,z_max', got {args.z_range!r}")
-        z_range = (parts[0], parts[1])
+    z_range = _parse_z_range(args.z_range)
     _load_umbilicus(args.umbilicus)  # validate now; reparsed cheaply at use site
     if not Path(args.meshes).is_dir():
         _die(f"--meshes: not a directory: {args.meshes}")
@@ -289,6 +293,60 @@ def cmd_intrinsic(args) -> int:
     report = write_report(Path(args.out), None, None, rep, meta=meta, overlay_slices=0)
     print(f"report: {report}")
     print(json.dumps(rep.to_dict(), indent=2))
+    return 0
+
+
+def cmd_annotations(args) -> int:
+    from .annotations import (
+        load_point_collections,
+        score_collections,
+        write_annotation_report,
+    )
+    from .io_tifxyz import load_run_windings
+    from .metrics import WindingFamilySoup
+
+    z_range = _parse_z_range(args.z_range)
+    if args.tau <= 0:
+        _die(f"--tau must be a positive number, got {args.tau}")
+    umbilicus = _load_umbilicus(args.umbilicus)
+    if umbilicus is None:
+        print(
+            "warning: without --umbilicus the azimuth correction assumes the "
+            "scroll axis at (y, x) = (0, 0); on real scans the wrap index is "
+            "meaningless without it.",
+            file=sys.stderr,
+        )
+    try:
+        family = load_run_windings(Path(args.meshes), variant=args.variant)
+    except (FileNotFoundError, ValueError) as exc:
+        _die(str(exc))
+    try:
+        collections = load_point_collections(args.pcl)
+    except (OSError, json.JSONDecodeError, ValueError, KeyError) as exc:
+        _die(f"--pcl: {exc}")
+    if not collections:
+        _die(f"no point collection with any point in {args.pcl}")
+
+    scores, aggregate = score_collections(
+        collections,
+        WindingFamilySoup.from_family(family),
+        umbilicus=umbilicus,
+        tau=args.tau,
+        z_range=z_range,
+    )
+    meta = {
+        "spiralcheck": __version__,
+        "meshes": str(args.meshes),
+        "variant": args.variant,
+        "n_windings": len(family),
+        "pcl": [str(p) for p in args.pcl],
+        "umbilicus": args.umbilicus,
+        "tau": args.tau,
+        "z_range": args.z_range,
+    }
+    out = write_annotation_report(Path(args.out), scores, aggregate, meta=meta)
+    print(f"report: {out}")
+    print(json.dumps(aggregate, indent=2))
     return 0
 
 
@@ -535,6 +593,40 @@ def main(argv: list[str] | None = None) -> int:
     _add_variant_flag(p)
     _add_umbilicus_flag(p)
     p.set_defaults(func=cmd_intrinsic)
+
+    p = sub.add_parser(
+        "annotations",
+        help="score a run against VC3D winding annotations (point collections)",
+        **fmt,
+        epilog="the same constraints villa scores inside the fit, measured from "
+        "the exported meshes instead of the checkpoint; exit codes: 0 scored; "
+        "2 invalid option or unreadable input.",
+    )
+    p.add_argument(
+        "--meshes", required=True, default=argparse.SUPPRESS,
+        help="run meshes directory: wNNN[_spliced] winding dirs or one combined surface",
+    )
+    p.add_argument(
+        "--pcl", required=True, default=argparse.SUPPRESS, action="append",
+        help="villa point-collection JSON (repeat for several files)",
+    )
+    p.add_argument(
+        "--out", required=True, default=argparse.SUPPRESS,
+        help="report directory to write: annotations.json, annotations.md",
+    )
+    p.add_argument(
+        "--tau", type=float, default=6.0,
+        help="a point farther than this (vox) from every surface is counted as "
+        "undecidable rather than assigned a winding",
+    )
+    p.add_argument(
+        "--z-range", default=None,
+        help="'z_min,z_max' of the fitted window: annotated points outside it "
+        "are not scored (a run only claims to model its own window)",
+    )
+    _add_variant_flag(p)
+    _add_umbilicus_flag(p)
+    p.set_defaults(func=cmd_annotations)
 
     p = sub.add_parser(
         "split", help="seeded held-out split of a patch directory", **fmt,
