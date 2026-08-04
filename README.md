@@ -178,6 +178,30 @@ VALIDATION.md records what each round caught, including the times it was our own
 published numbers that were wrong, and section 3 says plainly what 54/54 does
 and does not mean.
 
+## In progress
+
+Three things are being worked on, all of them holes this repository already
+admits to rather than new ideas:
+
+- **Winding agreement against human labels.** No PHerc. Paris 4 verified patch
+  carries a `winding.tif`, so section 9 exercises that metric against labels
+  derived from the fit itself — detection and localization, not calibration.
+  The dataset does carry hand-clicked winding annotations; the next step is
+  measuring a fit against those instead. villa's own
+  `find_inconsistent_windings.py` does this through the fit's transform; the
+  question here is what a mesh-only check can say.
+- **Whether one alarm names one failure mode.** Section 9 found it does not on
+  real geometry: a whole-turn error fires four metrics at once. Part of that is
+  the plant's fault (a step-shaped defect is a discontinuity; a real one
+  drifts), and re-running it as a smooth ramp is what will separate the two.
+- **Scoring a fit that is not ours.** Every report in `examples/` scores our
+  own runs on one 300-slice window of one scroll, which is the weakest thing
+  about this repository. The tool is producer-agnostic within the tifxyz
+  convention and CPU-only, so a run folder is all it needs.
+
+Anything already published here is measured and reproducible; anything in this
+list is not done yet, and this section is how you can tell which is which.
+
 ## Acknowledgments
 
 - The `tifxyz` conventions and the satisfaction metrics this tool complements live in
