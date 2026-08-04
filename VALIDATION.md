@@ -983,8 +983,8 @@ Run `quality2`, `--variant plain`, tau = 6, z 10600-10900.
 | Expectation, fixed before the run | Observed |
 |---|---|
 | the wrap index is constant along a collection the fit honours, well inside the half-turn boundary | largest spread among agreeing points **0.0155 turns** against a boundary of 0.5: a margin of 32x, so the verdict is not a threshold artefact |
-| a violation is a whole winding, not a fraction | all 6 disagreeing points sit at **exactly +/-1.00 turns**; 3 collections carry them (`same_wrap42` 21/25, `col247` 12/13, `same_wrap47` 20/21) |
-| a point far from every surface gets no verdict | 249 of 587 profiled points declined rather than assigned; 7 collections in the window have no decidable point at all and are reported as undecided, not as 0 |
+| a violation is a whole winding, not a fraction | the 6 disagreeing points sit between **0.994 and 1.001 turns** from their collection's median, none nearer the boundary than 0.49 turns; 3 collections carry them (`same_wrap42` 21/25, `col247` 12/13, `same_wrap47` 20/21), and all 6 are 3.8-5.3 vox from a surface, so none is a marginal read |
+| a point far from every surface gets no verdict | 360 of the 698 in-window points declined rather than assigned; 7 collections in the window have no decidable point at all and are reported as undecided, not as 0 |
 | the verdict does not hinge on the tolerance | tau = 2: 200/200 (100%); tau = 4: 284/285 (99.6%); tau = 6: 332/338 (98.2%); tau = 10: 427/441 (96.8%); tau = 20: 644/698 (92.3%) — monotone, no cliff |
 | collections judged on one point prove nothing | 25 of the 28 collections with at least two decidable points are honoured throughout; the 3 single-point verdicts are excluded from that count, being perfect by construction |
 
@@ -1031,7 +1031,8 @@ Not established, and none of this is a technicality:
   the fit generalises.
 - **Coverage is under half.** 338 of 698 in-window points are decidable at
   tau = 6. That is mostly a window-edge artefact rather than a property of the
-  fit: 20 of the 26 same-winding collections sit at z = 10604.4, 4.4 vox
+  fit — **357 of the 360 undecidable points (99.2%) lie within 20 vox of a
+  window edge**: 20 of the 26 same-winding collections sit at z = 10604.4, 4.4 vox
   inside a 300-voxel window whose exported grids are thin at the boundary
   (per-winding z minima run from 10600.0 to 10613.9). Displacing one
   collection's 16 points in z, holding y and x, the median distance to the
