@@ -60,6 +60,11 @@ identifies the failure mode.
 | Family axis far from origin, correct umbilicus passed | identical to centered family | same pitch and zero violations; wrong axis visibly breaks |
 | Same run scored twice | identical aggregates | equal dicts |
 
+Section 9 plants five of these defects, plus the null control, in a **real**
+fit's output surfaces instead, where the geometry is not ideal and not every
+answer comes out the same — in particular the "others stay silent" property
+above does not survive the trip.
+
 ## 3. The tests are themselves audited by mutation
 
 `scripts/mutation_check.py` (a CI job on Linux, Windows and macOS) injects
@@ -207,6 +212,16 @@ number in that table comes out of `scripts/pitch_blindness.py` on the demo run.
 shipped script only displaces radially, so that claim had no artifact behind it
 and is withdrawn rather than restated; the radial control is the one with a
 known answer, and it is the one that makes the point.)
+
+**Read this against section 9 before quoting it.** The experiment above moves
+the *evidence* inside an intact family, which tiles space at the pitch exactly,
+so distance barely moves. Section 9 does the mirror experiment — it moves the
+*fit* by one measured pitch over a z band — and there the median distance goes
+from 1.74 to 3.70 vox, because a real family's own gap is irregular and the
+displaced family is not a relabelling of itself. "Distance cannot see a whole
+pitch" holds for the direction measured here; in the other direction it
+under-reports by about tenfold rather than being blind, and section 9 is the
+number to quote for that case.
 
 Scope of this result, stated carefully, because it is easy to overstate.
 It says that a **distance-only** evaluation cannot judge a scroll fit,
@@ -599,12 +614,247 @@ plan (`examples/analysis_plan_quality2.md`). The reports' `meta` path prefixes a
 redacted to `<runs>`/`<data>` placeholders, run-folder names kept; every
 measured field is untouched.
 
+## 9. The planted-defect matrix, on a real fit's own output
+
+Section 2's matrix runs on a synthetic scroll: analytic ground truth, ideal
+geometry, and an obvious objection. Nothing there shows the metrics behave on
+the irregular surfaces a real `fit_spiral` run emits, and the fits scored above
+are all ours. One metric had never been exercised against a label at all: **0
+of the 4,922 PHerc. Paris 4 verified patches carry a `winding.tif`**, so
+winding agreement — the channel that carries this suite's "identity next to
+distance" argument — reads `not computed: no scored patch carried a usable
+winding grid` on every real report above.
+
+`scripts/planted_defects_real.py` closes both gaps with one move. It damages a
+real run's *output surfaces* in ways whose answer is fixed before the run,
+rescores the same sealed evidence, and asks of each scenario not only whether
+the intended metric fired but whether it fired in the right (winding, z, theta)
+place while the others held still. This is not section 4b rerun: that one
+displaces the held-out **evidence** around the umbilicus, this one displaces
+the **fit's surfaces**, which is the defect a real fit actually presents.
+
+Protocol: the section 8 `quality2` run (6,000 steps, 120 windings w010-w129),
+the same 94 sealed patches (49,458 quad centers), the same knobs as everywhere
+above (tau = 6 vox, `--unseen-min-dist 2`, z 10600-10900, `--variant spliced`,
+the 541 fit inputs for the leakage audit). The displacement is the run's own
+median pitch, measured by the intrinsic block rather than assumed: **19.10
+vox** (section 4b's 20.31 is a different run's pitch). The null row is not a
+new claim: it is the report already shipped as
+[`examples/real_run_quality2_report.json`](examples/real_run_quality2_report.json),
+reproduced on every field the two files share — same unseen block, same
+leakage profile, same intrinsic counters, all 120 per-winding validity
+figures, and all 94 per-patch rows — with **one** difference, which is the
+point of the section: the shipped run reports `winding_agreement: null` and
+this one reports a number, because this one supplies the labels. (The new
+artifact also republishes a subset: it drops per-patch `dist_max`,
+`normal_angle_*` and the per-patch unseen block, and the intrinsic `worst`
+list is not comparable at all, since the shipped JSON predates the
+offender-interleaving change of 2026-08-03.) Only the surfaces change from
+row to row. The five defect scenarios were also run a second time in fresh
+processes and reproduced byte for byte — a procedural check, not one the
+artifact records, unlike everything else here; the null's own two-pass check
+*is* in the artifact, in the table below.
+
+### The winding label PHerc. Paris 4 does not ship
+
+Winding agreement compares a patch's own relative winding annotation against
+the winding ids the fit assigns it. No verified patch carries that annotation.
+Planting the defect manufactures it: each sealed patch is labelled with the
+winding the **intact** run assigns it, on the quads where that assignment is
+locally unambiguous, and the plant then makes the fit disagree with those
+labels somewhere known in advance.
+
+`winding.tif` is a per-vertex grid while the metric reads the mean of a quad's
+four corners, so a vertex is labelled only when every quad touching it was
+scored and they all agree; a quad then has four finite corners exactly when it
+sits strictly inside a constant-assignment region, and its mean is that
+constant. Everything else stays NaN, which the metric skips — the convention
+villa uses to leave the first column past a seam unlabelled. That labels
+**31,080 of the 49,458 scored quads (62.8%)** across 90 of the 94 patches; the
+other four have fewer than two labelled quads and report no agreement, as they
+should.
+
+What this establishes, said before the table rather than after. The labels come
+from the reference fit, not from a human, so the null row's 1.0 is true by
+construction and says nothing about whether that fit is right. What is *not* by
+construction: the metric is mode-centred on both sides, so a uniform
+relabelling is invisible to it by design and only a disagreement varying
+**inside one patch** registers; whether a plausible real defect produces one,
+whether the arithmetic survives 120 irregular real windings, and whether it
+fires on the patches straddling the defect and not on the others, are
+measurements. On the whole-turn plant below, agreement drops on **78 of the 80
+straddling patches that report one, and holds at exactly 1.0 on 9 of the 10
+that do not straddle it** (the tenth reads 0.944, a false alarm on a patch the
+plant never touched).
+
+Three things that control does *not* establish, because a reader will assume
+them otherwise. First, all 13 non-straddling patches lie entirely **outside**
+the band — the straddling patches account for all 16,406 in-band points — so
+the 1.0s are a no-false-alarm check on untouched geometry, not a localization
+result; and since no sealed patch lies wholly inside the band, the
+mode-centring blind spot asserted above is restated from DESIGN.md, never
+demonstrated. Second, the label is `score_patch`'s own nearest-face winding
+under the intact fit, so agreement and the "matched winding shifted by -1"
+figure in the same row are **one measurement seen twice**, not two
+confirmations — agreement adds patch-wise pooling and the 62.8% restriction,
+nothing more. Third, the null's 1.0 does not police the label builder either:
+`score_patch` rounds the labels before comparing them, so labels invented at a
+boundary round back onto the assignment they came from. That invariant is
+pinned by `tests/test_planted_defect_labels.py` against an independent oracle
+instead, which is where it belongs.
+
+Calibrating the metric against human truth still needs a corpus carrying
+winding grids; this is detection and localization, not calibration.
+
+### The matrix
+
+| Planted scenario | Expected | Observed |
+|---|---|---|
+| Nothing (null control) | the shipped report, and a second scoring identical | every field of the section 8 report reproduced, all 94 per-patch rows included; two scorings identical bit for bit (per-point payload, aggregates, intrinsic, face counts); winding agreement exactly 1.0 |
+| Whole family +1 pitch (19.10 vox), z 10700-10800 | identity fires, distance barely moves, topology silent | matched winding exactly -1 on **63.1%** of the 16,406 in-band points (67.8% of the 9,901 clear of the band edges), unchanged on 97.9% of the 33,052 outside points and **99.97%** of the 26,504 of those clear of the edges; in-band distance p50 1.74 -> 3.70, a shift of 1.95 vox, a tenth of the 19.10 planted; intrinsic 138 (of 46,120 bins) -> 141 (of 46,107), 6 new and 3 gone, but only **1 of the 6 new ones inside the plant**. **Four other channels fired too** — see below |
+| One winding +1 pitch, same band | distance fires, and only on that winding | distance p50 on w063's own in-band evidence 1.12 -> 12.14 vox, elsewhere 2.04 -> 2.08; **37 of the 38** new crossings inside the planted (winding, z) bins |
+| Two adjacent windings exchange radius, theta 30-90 deg | sheet consistency falls at near-zero distance | caught, but **not by the named metric**: the intrinsic check gains 72 crossings and **all 72 sit inside the planted (winding, theta) bins**, none outside, none lost; mean sheet consistency only moves 0.744 -> 0.737, and of the 6 patches carrying evidence on the swapped pair 3 lose consistency while 3 *gain* it |
+| r += 3 vox * sin(theta), every winding | distance fires, topology frozen | distance p50 1.99 -> 2.50 overall, 1.99 -> 2.06 where sin(theta) is small and 1.99 -> 2.52 where it is not; topology within 3 bins of frozen (crossings 138 -> 139, collapsed 194 -> 196, inflated unchanged) |
+| One winding's vertices invalidated in a (z, theta) box | its validity drops, nobody else's | validity of w055 alone 0.4851 -> 0.4517, every other winding unchanged to the last digit; distance over the hole p50 0.29 -> 14.13 vox, elsewhere 2.017 -> 2.033; **zero** crossings invented — but 48 bins fell below the vertex count the check needs and stopped being examined at all, retiring 5 inflated-gap flags with them |
+
+Degenerate faces were recounted after every mutation, because a displaced
+vertex can pinch a grid cell and the distance primitive over-estimates on faces
+whose first two vertices coincide (section 1). Every row: **zero** faces with
+any duplicated vertex pair and zero exactly collinear, out of 1,171,318 faces
+(1,170,612 in the punched row, which removes some).
+
+### What it caught badly
+
+Six things, and they are the reason this section exists.
+
+**On real geometry the alarms are not orthogonal.** Section 2's stated design
+property is that each defect is caught by the metric meant for it "while the
+others stay silent, so an alarm identifies the failure mode". The whole-turn
+plant fires four more channels at once: sheet consistency 0.744 -> 0.570,
+single-winding consistency 0.718 -> 0.552, pooled normal agreement p90
+17.9 -> 34.0 degrees, within-tau 84.0% -> 79.7% (on unseen evidence only,
+sheet 0.605 -> 0.483 and normals 24.1 -> 38.1 degrees). None of those is a
+false alarm — the plant really does cut every patch that crosses a band edge,
+and really does leave a radial wall there — but that is the point: **the
+displacement a z band forces is a discontinuity, not a relabelling**, and a
+real accumulated-turn error would drift into place instead of stepping. So
+this row demonstrates that winding identity moves by the predicted amount; it
+does **not** demonstrate that an identity alarm can be read on its own. For
+comparison, the sheet-consistency drop here (-0.174) is of the same order as
+the entire +0.209 gain section 8 rests on. A reader tempted to use these
+metrics to name a failure mode should take that as the warning it is.
+
+**The whole-turn plant is not recovered exactly, and could not be.** On the
+ideal synthetic scroll the same plant moves the matched winding by exactly -1
+for 100% of in-band evidence; here it is 63.1%. The direction of the reason
+is measured and ships in the artifact's `meta`: only **49.9% of this run's
+46,120 adjacent-winding gaps lie within 25% of its own median pitch** (22,991
+of them), so displacing by exactly that median lands winding k where k+1 was
+only where the local spacing is close to it. That statistic is an indication,
+not a bound: it is computed over every bin of the whole family, equally
+weighted, while the 63.1% is over evidence points inside one z band — and
+being the smaller number it plainly does not cap the larger one. The
+synthetic 100% is a property of an ideal spiral, not of the metric, and the
+honest statement is that on real geometry roughly a third of the evidence
+does not follow a median-pitch displacement.
+
+**Distance is not blind to a whole-turn error on a real fit, only
+near-sighted.** Section 4b moves the evidence inside an intact family, which
+tiles space at the pitch, and gets 0.23 vox out of a two-pitch displacement.
+Moving the fit is harder: the family's own gap is irregular, so the displaced
+family is not a relabelling of itself, and the in-band median distance goes
+from 1.74 to 3.70 vox. That is still a tenfold under-report of a 19.10 vox
+error, but "distance cannot see a whole pitch" is too strong for this
+direction, and the tenfold statement is the honest one.
+
+**Sheet consistency did not catch the sheet swap.** The defect itself was
+caught, and localized perfectly: 72 new crossings, every one of them in the
+planted bins. But the metric named for this failure mode barely moved — 0.744
+to 0.737 on the aggregate, for a defect touching 4,325 of 49,458 points — and
+per patch it moved in *both directions*: three of the six affected patches went
+**up**, one from 0.82 to 0.93 after a defect was planted on it. That matches
+the upward bias frozen as a strict `xfail` in `tests/test_sheet_contract.py`
+(DESIGN.md, "Known limit"), and it is the second independent sighting of it,
+this time on real geometry. What discriminated instead was distance, which rose
+on **all six** affected patches (0.62 -> 4.36, 0.76 -> 3.69, 1.16 -> 3.57,
+2.55 -> 5.12, 3.54 -> 6.64, 6.51 -> 7.55 vox) — and
+that is itself a caveat on the plant: exchanging two windings by +/- the median
+pitch does invert their order, but where their real separation is not the
+median they land a few voxels off each other's place, so this is not the
+*near-zero-distance* swap the synthetic row tests. Planting one would need a
+per-(z, theta) radius model of each winding, which this script does not build.
+
+**The report's offender table does not localize a fresh defect.** `report.md`
+renders the top **ten** offenders, shared between three kinds; after the swap
+those ten hold 4 crossings, exactly **1** of them in the planted bins, though
+all 72 new ones are. (The JSON's `worst` list is twenty entries and holds 7,
+still only 1 in the plant.) On a fit already carrying 138 crossings, its own
+worst outrank anything freshly planted. The count is right and the
+localization is recoverable in principle — asking the same check for a
+`top_n` past the offender count lists every violated bin, which is how the 72
+was obtained — but `top_n` is not exposed by `spiralcheck intrinsic` or by
+`score`, so from the CLI it is not recoverable at all, and the rows a human
+actually reads are not where a new defect will show up.
+
+**The unseen aggregate cannot see the punched hole at all.** Its 15,437-point
+block is bit-identical to the null's, so every point whose distance the hole
+changed — not only the 404 over it — sits within 2 vox of a fit input. The
+leak-free column is the honest one for comparing runs, and it is also the one
+that can miss a defect planted where the evidence is densest.
+
+### Scope
+
+One run, one 300-slice window, one scroll, and the defects are ours — and
+sited where the sealed evidence is densest, which is the best case for
+detection: `one_winding` takes the winding carrying the most in-band points,
+`sheet_swap` the adjacent pair carrying the most in the theta band, `hole` the
+winding with the most in its box (the runners-up ship in the artifact). Two
+properties of the plants themselves are worth knowing before reading the
+table. A z-banded displacement necessarily leaves a **one-grid-row radial wall
+about 19.9 vox tall** at each band edge, which no real accumulated-turn error
+produces — that is what the edge margin stands clear of, and part of why four
+other channels fire. And the intrinsic localization is tested at the
+resolution of the intrinsic bins, which are **35 vox in z** and 7.5 degrees in
+theta, so the theta claims are sharp and the z ones are coarse (VALIDATION
+section 3 already lists the z axis of that localization as thin coverage).
+
+The winding labels are manufactured from the reference fit, so this measures
+detection and localization, not whether that fit is right. The claim that
+survives all of it is narrow and worth exactly what it says: on the output of
+a real `fit_spiral` run, every planted defect was detected, and where a
+localization could be measured it landed where the plant was. What did *not*
+survive is the reading section 2 invites — that the metric which fires names
+the failure mode. One defect was caught by a different metric than the one
+aimed at it, another fired four metrics at once, and the whole-turn plant is
+recovered exactly for under two-thirds of the evidence rather than all of it.
+
+One thing this cannot measure, said because it would be easy to imply
+otherwise: villa's satisfaction metrics are computed by `fit_spiral` through
+the fit's own transform from its checkpoint, not from the meshes, so they
+cannot be recomputed on a tampered mesh set. The narrower true statement is
+that a defect planted in a run's *output* is invisible to any metric computed
+only from that run's *inputs*.
+
+Artifact: [`examples/planted_defects_real.json`](examples/planted_defects_real.json).
+Every scenario carries an aggregate, an unseen block, intrinsic counters,
+per-patch rows and a degenerate-face recount; the five defects add a
+localization response, the null a two-pass check and the winding-label census.
+Local path prefixes redacted to `<runs>`/`<data>` like the section 7 and 8
+reports; every measured field untouched.
+
 ## Reproduce
 
 ```bash
 uv sync --group dev
-uv run pytest -q                      # 148 tests + 1 strict xfail (a frozen known limit)
+uv run pytest -q                      # 157 tests + 1 strict xfail (a frozen known limit)
 uv run python scripts/mutation_check.py   # 54/54 injected bugs must be detected
 uv run python scripts/real_data_smoke.py <verified_patches_dir> 500
 uv run python scripts/real_overlap_check.py <verified_patches_dir> 150
+uv run python scripts/planted_defects_real.py <meshes> <heldout> \
+    --umbilicus <umbilicus.json> --fit-inputs <fit_inputs> \
+    --z-range 10600,10900 --out <dir>   # section 9; ~70 min, 8 scoring passes
 ```
+
+The planted-defect run scores eight times and peaks around 5 GB, so `--only
+<scenario>` runs them one at a time on a small machine; `null` must run first,
+since it writes the reference the others read.

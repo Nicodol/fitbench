@@ -143,6 +143,9 @@ v0.4 (July 2026): point-to-mesh distance verified against brute force over every
 triangle and against an independent dense-sampling reference, held-out metrics
 and intrinsic checks validated against planted defects on a synthetic scroll
 (null controls silent, every defect class detected by the intended metric),
+and, since August, against five defects planted in a real fit's own output
+meshes, where each was caught and localized but the "one alarm names one
+failure mode" property did not survive (VALIDATION.md section 9),
 measured sensitivity floors, split/score/intrinsic/compare CLI covered by
 end-to-end tests, loader validated on 500/500 real PHerc. Paris 4 verified
 patches, and a demonstration on two real `fit_spiral` runs (see VALIDATION.md,

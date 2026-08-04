@@ -5,7 +5,7 @@ Versions are the `pyproject.toml` version at the time; v0.2 was a milestone insi
 commit dates; the full detail of what each review round caught, including the times our
 own published numbers were wrong, is in [VALIDATION.md](VALIDATION.md).
 
-## Unreleased (August 2026): first-contact usability round
+## Unreleased (August 2026): first-contact usability round, then planted defects on a real fit
 
 Shaped by an external first-contact test report (fresh Windows machine, no GPU, no data).
 No metric changed: every number in `examples/` is unchanged, and the regenerated
@@ -58,6 +58,37 @@ Markdown reports were verified numerically identical.
   blind review passes: adversarial, claims audit against artifacts, upstream check, test
   quality). What it caught, and the fix for each finding with its test, is in the
   "Answer the pre-push review round" commit.
+- **The planted-defect matrix stops being synthetic-only.**
+  `scripts/planted_defects_real.py` damages a real `fit_spiral` run's output surfaces in
+  five known ways — a whole-turn displacement over a z band, the same displacement on a
+  single winding, two windings exchanging radius over a theta band, a smooth radial drift
+  and a punched hole — and rescores the same 94 sealed patches under the section 8
+  protocol (VALIDATION section 9, `examples/planted_defects_real.json`). The null row
+  reproduces the shipped section 8 report on every field the two share except the one the
+  section adds, two scorings of it are identical bit for bit, and the five defect
+  scenarios reproduced byte for byte across two separate runs.
+- **Winding agreement runs against a label for the first time on real data.** No PHerc.
+  Paris 4 verified patch carries a `winding.tif`, so each sealed patch is labelled with
+  the winding the intact fit assigns it wherever that assignment is locally unambiguous
+  (31,080 of 49,458 scored quads, 90 of 94 patches). The null is 1.0 by construction;
+  what section 9 reports is that a planted whole-turn error is detected and localized —
+  agreement falls on 78 of the 80 straddling patches and holds at 1.0 on 9 of the 10
+  that do not straddle it.
+- What the planted-defect round caught *against* us is most of section 9: on real geometry
+  the alarms are **not orthogonal** (the whole-turn plant fires sheet consistency,
+  single-winding consistency, normal agreement and within-tau as well as winding identity,
+  so section 2's "an alarm identifies the failure mode" does not transfer); the whole-turn
+  plant is recovered exactly for 63% of in-band evidence rather than 100%, the run's own
+  gap being irregular; distance is near-sighted rather than blind to it, which qualifies
+  section 4b in the fit-side direction; sheet consistency failed to catch the sheet swap
+  that the intrinsic check localized perfectly; and `report.md`'s ten-row offender table
+  surfaces just 1 of 72 freshly planted crossings on a fit that already has 138.
+- `tests/test_planted_defect_labels.py` pins the manufactured winding label against an
+  independently written oracle (soundness, completeness and the published count), because
+  the null control provably cannot: `score_patch` rounds the labels before comparing them,
+  so deleting the unambiguity rule leaves winding agreement reading exactly 1.0 while
+  quads whose corners disagree enter the count. CI now lints `scripts/` too, which it
+  never did.
 
 ## v0.4.0 (2026-07-28 to 2026-08-02)
 

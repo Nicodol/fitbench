@@ -283,6 +283,9 @@ Held-out, per patch (then aggregated):
   for machines). It is validated on synthetic fixtures only, and it saturates
   at 1.0 for any patch whose annotation stays inside the modal winding, whatever that annotation
   contains. Do not read a 1.0 here as evidence until a corpus with real winding grids exists.
+  VALIDATION.md section 9 runs the channel on real geometry against labels *manufactured from the
+  reference fit's own assignment*: that is a detection-and-localization test, not the missing
+  corpus, and its 1.0 on the intact run is true by construction and is not evidence either.
 - **normal agreement**: angle between patch quad normals and the matched surface normals
   (p50/p90), sign-agnostic.
 - **fraction within tau** doubles as coverage: the share of a patch's scored quad centers with a
@@ -383,6 +386,9 @@ The windcheck standard, adopted:
 - **Planted defects**: start from a clean fit (or synthetic ideal spiral), inject known defects:
   swap two windings in a theta band, collapse a gap to zero, apply smooth radial drift, punch
   holes. Detection precision/recall gated at thresholds fixed *before* the run.
+  *Done* on the synthetic side (VALIDATION.md section 2) and, since August, on a real fit's
+  output surfaces (`scripts/planted_defects_real.py`, VALIDATION.md section 9, where the
+  "each alarm identifies its own failure mode" half of the plan measurably does not hold).
 - **Null controls**: unperturbed fits must produce zero monotonicity violations above tolerance;
   metrics on identical runs must be identical.
 - **Sensitivity floor**: report the smallest planted defect each metric reliably detects.

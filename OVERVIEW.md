@@ -89,6 +89,18 @@ QuadSurfaces with `winding_column_ranges`); producer-agnostic by design.
   and reported as collapsed, not as a false crossing; a planted leaked patch
   is caught by the leakage profile. Null controls are bounded by computed
   chordal-discretization limits, not magic numbers.
+- The same matrix planted in a **real** fit's output surfaces (VALIDATION
+  section 9): five defects plus a null control, rescored against the same 94
+  sealed patches, each alarm checked for landing in the right
+  (winding, z, theta) place. It is also where winding agreement finally runs
+  against a label — one *manufactured from the reference fit's own
+  assignment*, since no Paris 4 patch ships one, so it tests detection and
+  localization and not whether that fit is right. Every defect was detected,
+  but section 9 is mostly a list of what that cost: on real geometry the
+  alarms are not orthogonal (a whole-turn error fires four channels at once),
+  the metric named for the sheet swap missed it, the whole-turn plant is
+  recovered exactly for 63% of the evidence rather than 100%, and the report's
+  offender table does not surface a freshly planted crossing.
 - The tests are themselves audited by mutation (54 injected bugs, all
   detected, a CI job on three OSes; two further candidates were left out as
   equivalent mutants rather than counted). 54/54 is a regression harness, not

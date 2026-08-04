@@ -1,7 +1,7 @@
 # examples/: every shipped artifact, and how to regenerate it
 
 All artifacts here come from the runs and protocols documented in
-[VALIDATION.md](../VALIDATION.md) (sections 5 to 8). Everything marked *replayable*
+[VALIDATION.md](../VALIDATION.md) (sections 5 to 9). Everything marked *replayable*
 regenerates byte-identically from this repository alone; the reports themselves need the
 run meshes and the patch data. Each report's `meta` block records its parameters, with
 local filesystem prefixes redacted: the section 6 reports to bare `<meshes>`-style
@@ -65,6 +65,22 @@ reveal more leakage, never hide it.
   plan that bound the section 8 analysis, committed before any result of the pair
   existed. `analysis_plan_quality2.fr.md` is the verbatim French original from the
   private working log; the hash in the companion file is of this file as shipped.
+
+## Planted defects on a real fit (section 9)
+
+- `planted_defects_real.json`: the six-scenario matrix of VALIDATION section 9 — the
+  intact `quality2` run plus five defects planted in its *output surfaces*. Every scenario
+  carries an aggregate, an unseen block, intrinsic counters, per-patch rows and a
+  degenerate-face recount; the five defects add a localization `response`, the null a
+  `repeat` block and the winding-label census instead. The null reproduces
+  `real_run_quality2_report.json` on every field the two share except `winding_agreement`
+  (which the shipped run could not compute) and the intrinsic `worst` list (the shipped
+  JSON predates the offender-interleaving change), and that is what ties this file to the
+  rest of `examples/`.
+  `uv run python scripts/planted_defects_real.py <meshes> <heldout> --umbilicus <umbilicus.json> --fit-inputs <fit_inputs> --z-range 10600,10900 --out <dir>`
+  (eight scoring passes, about 70 minutes; `--only <scenario>` runs one at a time, which
+  is what a small machine needs). Path prefixes redacted to `<runs>`/`<data>` like the
+  section 7 and 8 reports; every measured field untouched.
 
 ## Overlay
 
