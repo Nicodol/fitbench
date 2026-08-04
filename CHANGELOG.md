@@ -36,7 +36,17 @@ own published numbers were wrong, is in [VALIDATION.md](VALIDATION.md).
   smoothly across a z band and held above it, reaching `pitch_band`'s end state without the
   one-grid-row radial wall a step leaves at each band edge. The difference between the two
   is the cliff's contribution to the collateral alarms section 9 reports, measured instead
-  of argued. The measurement itself is not published yet.
+  of argued — and it splits them. **89.2% of the step's damage to normal agreement was the
+  wall** (17.9 -> 34.0 degrees stepped, 17.9 -> 19.7 ramped; 88.8% on unseen evidence), so
+  that channel was accused wrongly. Sheet consistency, single-winding consistency and
+  within-tau are all hit *harder* by the smooth version, so they are genuinely not
+  independent of a whole-turn error and narrowing them would be a regression: a patch
+  spanning a shifted labelling really does land on two sheets. Section 9 now says what
+  follows from that — what names a failure mode is the combination, which this suite does
+  not yet compute.
+- The matrix was re-run end to end to add the seventh scenario, and the six published
+  before it came back **byte-identical**, meta included, on a different day in a different
+  process. `examples/planted_defects_real.json` is replaced by the seven-scenario file.
 
 ## Earlier in Unreleased: first-contact usability round, then planted defects on a real fit
 

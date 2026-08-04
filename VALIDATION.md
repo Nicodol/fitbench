@@ -663,10 +663,12 @@ artifact also republishes a subset: it drops per-patch `dist_max`,
 `normal_angle_*` and the per-patch unseen block, and the intrinsic `worst`
 list is not comparable at all, since the shipped JSON predates the
 offender-interleaving change of 2026-08-03.) Only the surfaces change from
-row to row. The five defect scenarios were also run a second time in fresh
-processes and reproduced byte for byte — a procedural check, not one the
+row to row. The **first five** defect scenarios were also run a second time in
+fresh processes and reproduced byte for byte — a procedural check, not one the
 artifact records, unlike everything else here; the null's own two-pass check
-*is* in the artifact, in the table below.
+*is* in the artifact, in the table below. The `pitch_ramp` scenario added
+later has **not** had that second run, so it carries the null's determinism
+guarantee and no repetition of its own.
 
 ### The winding label PHerc. Paris 4 does not ship
 
@@ -725,6 +727,7 @@ winding grids; this is detection and localization, not calibration.
 |---|---|---|
 | Nothing (null control) | the shipped report, and a second scoring identical | every field of the section 8 report reproduced, all 94 per-patch rows included; two scorings identical bit for bit (per-point payload, aggregates, intrinsic, face counts); winding agreement exactly 1.0 |
 | Whole family +1 pitch (19.10 vox), z 10700-10800 | identity fires, distance barely moves, topology silent | matched winding exactly -1 on **63.1%** of the 16,406 in-band points (67.8% of the 9,901 clear of the band edges), unchanged on 97.9% of the 33,052 outside points and **99.97%** of the 26,504 of those clear of the edges; in-band distance p50 1.74 -> 3.70, a shift of 1.95 vox, a tenth of the 19.10 planted; intrinsic 138 (of 46,120 bins) -> 141 (of 46,107), 6 new and 3 gone, but only **1 of the 6 new ones inside the plant**. **Four other channels fired too** — see below |
+| Same pitch accumulated **smoothly** across z 10700-10800 and held above it | the same winding error, reached with no radial wall: identity still fires, and the alarms the wall was driving subside | matched winding exactly -1 on **66.8%** of the 17,078 points above the band (66.2% clear of the edges), unchanged on **99.97%** of the 15,974 below; **3 new crossings and none inside the plant**, against the step's 6 with 1 inside; normal agreement p90 17.9 -> **19.7** deg where the step gave 34.0, so **89.2% of the step's normal damage was the wall** (88.8% on unseen evidence). But sheet consistency 0.744 -> **0.537** and within-tau 84.0% -> **77.0%** are *worse* than the step's 0.570 and 79.7%, so those two were not the wall's doing |
 | One winding +1 pitch, same band | distance fires, and only on that winding | distance p50 on w063's own in-band evidence 1.12 -> 12.14 vox, elsewhere 2.04 -> 2.08; **37 of the 38** new crossings inside the planted (winding, z) bins |
 | Two adjacent windings exchange radius, theta 30-90 deg | sheet consistency falls at near-zero distance | caught, but **not by the named metric**: the intrinsic check gains 72 crossings and **all 72 sit inside the planted (winding, theta) bins**, none outside, none lost; mean sheet consistency only moves 0.744 -> 0.737, and of the 6 patches carrying evidence on the swapped pair 3 lose consistency while 3 *gain* it |
 | r += 3 vox * sin(theta), every winding | distance fires, topology frozen | distance p50 1.99 -> 2.50 overall, 1.99 -> 2.06 where sin(theta) is small and 1.99 -> 2.52 where it is not; topology within 3 bins of frozen (crossings 138 -> 139, collapsed 194 -> 196, inflated unchanged) |
@@ -740,22 +743,51 @@ any duplicated vertex pair and zero exactly collinear, out of 1,171,318 faces
 
 Six things, and they are the reason this section exists.
 
-**On real geometry the alarms are not orthogonal.** Section 2's stated design
-property is that each defect is caught by the metric meant for it "while the
-others stay silent, so an alarm identifies the failure mode". The whole-turn
-plant fires four more channels at once: sheet consistency 0.744 -> 0.570,
-single-winding consistency 0.718 -> 0.552, pooled normal agreement p90
-17.9 -> 34.0 degrees, within-tau 84.0% -> 79.7% (on unseen evidence only,
-sheet 0.605 -> 0.483 and normals 24.1 -> 38.1 degrees). None of those is a
-false alarm — the plant really does cut every patch that crosses a band edge,
-and really does leave a radial wall there — but that is the point: **the
-displacement a z band forces is a discontinuity, not a relabelling**, and a
-real accumulated-turn error would drift into place instead of stepping. So
-this row demonstrates that winding identity moves by the predicted amount; it
-does **not** demonstrate that an identity alarm can be read on its own. For
-comparison, the sheet-consistency drop here (-0.174) is of the same order as
-the entire +0.209 gain section 8 rests on. A reader tempted to use these
-metrics to name a failure mode should take that as the warning it is.
+**On real geometry the alarms are not orthogonal — and only part of that is
+the plant's fault.** Section 2's stated design property is that each defect is
+caught by the metric meant for it "while the others stay silent, so an alarm
+identifies the failure mode". The whole-turn step fires four more channels at
+once: sheet consistency 0.744 -> 0.570, single-winding consistency
+0.718 -> 0.552, pooled normal agreement p90 17.9 -> 34.0 degrees, within-tau
+84.0% -> 79.7% (on unseen evidence only, sheet 0.605 -> 0.483 and normals
+24.1 -> 38.1 degrees). None of those is a false alarm, but a step is a
+discontinuity rather than a relabelling: it leaves a one-grid-row radial wall
+about 19.9 vox tall at each band edge, which no real accumulated-turn error
+produces. So the first question is how much of the collateral is the wall.
+
+The `pitch_ramp` row answers it by measurement. It accumulates the same pitch
+smoothly across the same band and holds it above, so the winding error above
+the band is the same (66.8% of points exactly -1, against the step's 63.1% in
+band) while the wall is gone (3 new crossings, none inside the plant, against
+6 with 1 inside). The four channels then split cleanly in two, and the split
+is the opposite of a single tidy story:
+
+| channel | intact | step | ramp | of the step's damage, the wall's share |
+|---|---:|---:|---:|---:|
+| normal agreement p90 | 17.94 deg | 33.98 | **19.67** | **89.2%** |
+| sheet consistency | 0.7443 | 0.5702 | **0.5368** | none: the ramp is worse |
+| single-winding consistency | 0.7184 | 0.5521 | **0.5309** | none: the ramp is worse |
+| within tau | 83.96% | 79.75% | **76.99%** | none: the ramp is worse |
+
+**Normal agreement was accused wrongly.** Nearly nine tenths of its 16.0-degree
+excursion was the wall (88.8% on unseen evidence, where 24.1 -> 38.1 becomes
+24.1 -> 25.6). That channel does discriminate; the step was libelling it.
+
+**The other three were not.** A smooth accumulated turn damages sheet
+consistency *more* than a step does (-0.207 against -0.174), and the same
+holds for single-winding consistency and within-tau. That is not a defect to
+be fixed by narrowing them. A patch spanning a region where the winding
+labelling has shifted really does land on two sheets, so sheet consistency is
+**right** to fire on a whole-turn error; a metric that stayed silent there
+would be worse, not more specific. The honest conclusion is that these
+channels are not independent symptoms and cannot be read as a diagnosis one at
+a time — what names a failure mode is the *combination* (identity shifted by a
+constant integer over a contiguous z band, distance barely moved, topology
+intact) rather than any single alarm. This suite does not yet compute that
+combination, and until it does, a reader should treat a single alarm as
+evidence that something is wrong and not as evidence of what. For scale, the
+sheet-consistency drop here (-0.174 stepped, -0.207 ramped) is of the same
+order as the entire +0.209 gain section 8 rests on.
 
 **The whole-turn plant is not recovered exactly, and could not be.** On the
 ideal synthetic scroll the same plant moves the matched winding by exactly -1
@@ -850,10 +882,16 @@ only from that run's *inputs*.
 
 Artifact: [`examples/planted_defects_real.json`](examples/planted_defects_real.json).
 Every scenario carries an aggregate, an unseen block, intrinsic counters,
-per-patch rows and a degenerate-face recount; the five defects add a
+per-patch rows and a degenerate-face recount; the six defects add a
 localization response, the null a two-pass check and the winding-label census.
 Local path prefixes redacted to `<runs>`/`<data>` like the section 7 and 8
 reports; every measured field untouched.
+
+Adding `pitch_ramp` meant re-running the whole matrix from scratch, which
+produced an unplanned check worth more than the one it replaced: the six
+scenarios published before it came back **byte-identical**, meta included,
+across a different day and a different process. The determinism claim above
+therefore no longer rests on the null's own two-pass block alone.
 
 ## 10. Winding agreement meets a real winding label
 

@@ -68,17 +68,19 @@ reveal more leakage, never hide it.
 
 ## Planted defects on a real fit (section 9)
 
-- `planted_defects_real.json`: the six-scenario matrix of VALIDATION section 9 — the
-  intact `quality2` run plus five defects planted in its *output surfaces*. Every scenario
+- `planted_defects_real.json`: the seven-scenario matrix of VALIDATION section 9 — the
+  intact `quality2` run plus six defects planted in its *output surfaces*. Every scenario
   carries an aggregate, an unseen block, intrinsic counters, per-patch rows and a
-  degenerate-face recount; the five defects add a localization `response`, the null a
+  degenerate-face recount; the six defects add a localization `response`, the null a
   `repeat` block and the winding-label census instead. The null reproduces
   `real_run_quality2_report.json` on every field the two share except `winding_agreement`
   (which the shipped run could not compute) and the intrinsic `worst` list (the shipped
   JSON predates the offender-interleaving change), and that is what ties this file to the
-  rest of `examples/`.
+  rest of `examples/`. When `pitch_ramp` was added in August the whole matrix was re-run
+  from scratch, and the six scenarios published before it came back **byte-identical**,
+  which is the strongest determinism check this artifact carries.
   `uv run python scripts/planted_defects_real.py <meshes> <heldout> --umbilicus <umbilicus.json> --fit-inputs <fit_inputs> --z-range 10600,10900 --out <dir>`
-  (eight scoring passes, about 70 minutes; `--only <scenario>` runs one at a time, which
+  (nine scoring passes, about 100 minutes; `--only <scenario>` runs one at a time, which
   is what a small machine needs). Path prefixes redacted to `<runs>`/`<data>` like the
   section 7 and 8 reports; every measured field untouched.
 

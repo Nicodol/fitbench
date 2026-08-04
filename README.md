@@ -143,9 +143,13 @@ v0.4 (July 2026): point-to-mesh distance verified against brute force over every
 triangle and against an independent dense-sampling reference, held-out metrics
 and intrinsic checks validated against planted defects on a synthetic scroll
 (null controls silent, every defect class detected by the intended metric),
-and, since August, against five defects planted in a real fit's own output
+and, since August, against six defects planted in a real fit's own output
 meshes, where each was caught and localized but the "one alarm names one
-failure mode" property did not survive (VALIDATION.md section 9),
+failure mode" property did not survive: re-planting the whole-turn error as a
+smooth ramp instead of a step shows that 89% of its damage to normal agreement
+was the step's own radial wall, while sheet consistency and within-tau are hit
+*harder* by the smooth version and so are genuinely not independent of it
+(VALIDATION.md section 9),
 measured sensitivity floors, split/score/intrinsic/compare CLI covered by
 end-to-end tests, loader validated on 500/500 real PHerc. Paris 4 verified
 patches, and a demonstration on two real `fit_spiral` runs (see VALIDATION.md,
@@ -184,13 +188,16 @@ Holes this repository already admits to, rather than new ideas. Anything
 published here is measured and reproducible; anything in this list is not done
 yet, and this section is how you can tell which is which.
 
-- **Whether one alarm names one failure mode.** Section 9 found it does not on
-  real geometry: a whole-turn error fires four metrics at once. Part of that is
-  the plant's fault — a step-shaped defect is a discontinuity, while a real
-  accumulated error drifts into place. `scripts/planted_defects_real.py` now
-  carries a `pitch_ramp` scenario that reaches the same end state with no
-  radial wall, so the difference between the two measures the cliff's
-  contribution. The measurement has not been published yet.
+- **A diagnostic layer that reads the combination of alarms.** Section 9's ramp
+  measurement settled the question it was aimed at — normal agreement was
+  accused wrongly, sheet consistency and within-tau were not — and left a
+  consequence: those channels are genuinely not independent of a whole-turn
+  error, so no single alarm names a failure mode and none should be narrowed
+  until it does. What would name one is the *pattern*: identity shifted by a
+  constant integer over a contiguous z band with distance barely moved is a
+  turn error; distance exploding on one winding with the radial order violated
+  is a misplaced sheet. The seven planted scenarios are a labelled training set
+  for such rules. Nothing of it is written yet.
 - **Scoring a fit that is not ours.** Every report in `examples/` scores our
   own runs on one 300-slice window of one scroll, which is the weakest thing
   about this repository. The tool is producer-agnostic within the tifxyz
