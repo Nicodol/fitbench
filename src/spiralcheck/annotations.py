@@ -279,6 +279,11 @@ def score_collection(
     if n_within_tau == 0:
         empty.dist_p50 = float(np.percentile(result.dist, 50))
         empty.dist_max = float(result.dist.max())
+        # Distances are reported even when no verdict is: a caller profiling
+        # where the undecidable evidence sits would otherwise silently drop
+        # the collections that are *entirely* undecidable, which are exactly
+        # the ones such a profile is about.
+        empty.point_dist = result.dist
         return empty
 
     # Only differences of the wrap index are meaningful (its zero is the

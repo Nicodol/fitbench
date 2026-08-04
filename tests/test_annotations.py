@@ -238,6 +238,11 @@ def test_collection_with_no_decidable_point_reports_none_not_zero(tmp_path):
     assert score.agreement is None
     assert score.n_agree == 0
     assert score.dist_p50 is not None  # coverage is still reported
+    # Per-point distances survive too. A caller profiling where the
+    # undecidable evidence sits would otherwise drop exactly the collections
+    # that are entirely undecidable, undercounting the thing being profiled.
+    assert score.point_dist is not None
+    assert len(score.point_dist) == 1
 
 
 def test_z_range_excludes_points_outside_the_fitted_window(tmp_path):

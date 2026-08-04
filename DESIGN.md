@@ -277,15 +277,29 @@ Held-out, per patch (then aggregated):
   a structural floor at the theta seam, where a correct fit necessarily splits a patch across two
   winding ids.
 - **winding-number agreement**: when `winding.tif` is present, difference between relative winding
-  deltas in the patch annotation and deltas of assigned winding ids. **Never exercised on real
-  data**: 0 of the 4,922 Paris 4 verified patches carry a `winding.tif`, so every real report
+  deltas in the patch annotation and deltas of assigned winding ids. **Never exercised against a
+  real `winding.tif`**: 0 of the 4,922 Paris 4 verified patches carry one, so every real report
   prints `winding agreement: not computed` (with the reason spelled out; the JSON keeps `null`
-  for machines). It is validated on synthetic fixtures only, and it saturates
+  for machines). On patches it is validated on synthetic fixtures only, and it saturates
   at 1.0 for any patch whose annotation stays inside the modal winding, whatever that annotation
-  contains. Do not read a 1.0 here as evidence until a corpus with real winding grids exists.
+  contains. Do not read a 1.0 there as evidence until a corpus with real winding grids exists.
   VALIDATION.md section 9 runs the channel on real geometry against labels *manufactured from the
   reference fit's own assignment*: that is a detection-and-localization test, not the missing
   corpus, and its 1.0 on the intact run is true by construction and is not evidence either.
+
+  The idea itself is no longer untested against a human label, though the patch channel still is.
+  Winding evidence on Paris 4 exists as villa **point collections** rather than as `winding.tif`
+  grids, and `spiralcheck annotations` (`annotations.py`) scores a run against them from the
+  exported meshes and the umbilicus, with no checkpoint and no GPU. It is villa's own pcl
+  satisfaction transposed: the continuous winding coordinate off the nearest exported face, minus
+  the azimuth the collection travels, minus the annotation, must stay constant. VALIDATION.md
+  section 10 reports 332 of 338 decidable points on a real run, with the disagreements at exactly
+  one turn and a decision margin 32x the instrument's noise floor. Three limits belong next to
+  that number and are repeated wherever it is quoted: those annotations are **fit inputs**, so it
+  is constraint satisfaction and not a held-out result; under half the in-window points are
+  decidable at tau = 6, mostly a window-edge artefact; and 620 of the 719 points are traced by
+  VC3D's `SameWrapAnnotationTool` along a skeletonised CT slice under human supervision rather
+  than clicked, so only 98 of them are unambiguously human labels.
 - **normal agreement**: angle between patch quad normals and the matched surface normals
   (p50/p90), sign-agnostic.
 - **fraction within tau** doubles as coverage: the share of a patch's scored quad centers with a

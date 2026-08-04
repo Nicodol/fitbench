@@ -82,6 +82,21 @@ reveal more leakage, never hide it.
   is what a small machine needs). Path prefixes redacted to `<runs>`/`<data>` like the
   section 7 and 8 reports; every measured field untouched.
 
+## Winding annotations on a real fit (section 10)
+
+- `winding_annotations_real.json`: the `quality2` run scored against the three villa point
+  collections the dataset ships, from the exported meshes and the umbilicus alone. Carries
+  the per-collection rows (kind, points, in-window, decidable, agreeing, offenders with
+  their z/theta and wrap offset), the aggregate pooled over points and per kind, a sweep of
+  the decidability tolerance, where the undecidable evidence sits in z, and the join
+  against villa's own `satisfied_fitted.json`. Read it with VALIDATION section 10, which
+  states the three bounds on the headline number: the annotations are fit *inputs*, under
+  half the in-window points are decidable, and 620 of the 719 are machine-traced under
+  human supervision rather than clicked.
+  `uv run python scripts/winding_annotations_real.py --meshes <meshes> --pcl <abs_winding.json> --pcl <relative_windings.json> --pcl <same_windings.json> --umbilicus <umbilicus.json> --satisfied <satisfied_fitted.json> --variant plain --tau 6 --z-range 10600,10900 --out <out.json>`
+  (one scoring pass over 719 points, a few minutes). Path prefixes redacted to
+  `<runs>`/`<data>` like the section 7 to 9 artifacts; every measured field untouched.
+
 ## Overlay
 
 - `real_run_smoke8_overlay_z10749.png`: one overlay slice of the smoke8 run (the file a

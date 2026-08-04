@@ -5,7 +5,40 @@ Versions are the `pyproject.toml` version at the time; v0.2 was a milestone insi
 commit dates; the full detail of what each review round caught, including the times our
 own published numbers were wrong, is in [VALIDATION.md](VALIDATION.md).
 
-## Unreleased (August 2026): first-contact usability round, then planted defects on a real fit
+## Unreleased (August 2026): first-contact usability round, planted defects on a real fit, then a real winding label
+
+- `spiralcheck annotations`: score a run against villa point collections — the winding
+  evidence VC3D actually produces on PHerc. Paris 4 — from the exported meshes and the
+  umbilicus, with no checkpoint, no torch and no GPU. It is villa's own pcl satisfaction
+  (`satisfaction_metrics.py`, `get_unattached_pcl_satisfied_counts`) transposed: the
+  continuous winding coordinate off the nearest exported face, minus the azimuth the
+  collection travels, minus the annotation, must stay constant along a collection. Points
+  farther than `--tau` from every surface are declined rather than assigned a winding, and
+  the report says how many. New module `src/spiralcheck/annotations.py`,
+  `scripts/winding_annotations_real.py` for the real-data artifact, 17 tests.
+- VALIDATION.md section 10: the winding-agreement idea run against real annotations for the
+  first time — 332 of 338 decidable points on the `quality2` run, disagreements at exactly
+  one turn, decision margin 32x the instrument's noise floor, and the same verdict as
+  villa's own satisfaction on 17 of the 22 collections both can decide with no collection
+  flagged here that villa clears. Bounded in the same section: the annotations are **fit
+  inputs**, so this is constraint satisfaction and not a held-out result; under half the
+  in-window points are decidable at tau = 6, mostly a window-edge artefact; and the sealed
+  patches are shown *not* to descend from these collections, by reading each patch's
+  recorded parent rather than assuming it.
+- **Correction to VALIDATION.md section 6.** It described the 719 annotation points as
+  "manually clicked in VC3D", which is true of 99 of them and wrong about the other 620.
+  The `same_wrapNNN` collections are written in one commit by VC3D's
+  `SameWrapAnnotationTool`, which Otsu-thresholds and skeletonises the displayed slice,
+  snaps two human-chosen endpoints to it and traces Dijkstra between them: machine-traced
+  along the papyrus in the scan, under human supervision. The section now says so, and
+  section 10 measures what the distinction is worth.
+- `scripts/planted_defects_real.py` gains a `pitch_ramp` scenario: one pitch accumulated
+  smoothly across a z band and held above it, reaching `pitch_band`'s end state without the
+  one-grid-row radial wall a step leaves at each band edge. The difference between the two
+  is the cliff's contribution to the collateral alarms section 9 reports, measured instead
+  of argued. The measurement itself is not published yet.
+
+## Earlier in Unreleased: first-contact usability round, then planted defects on a real fit
 
 Shaped by an external first-contact test report (fresh Windows machine, no GPU, no data).
 No metric changed: every number in `examples/` is unchanged, and the regenerated

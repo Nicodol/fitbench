@@ -313,8 +313,21 @@ carries per patch rather than as a total.
 
 One input channel is shared rather than withheld, measured here so the claim
 above stays exact. Both runs also consume the same three winding-annotation
-point collections (719 points, manually clicked in VC3D; the files carry
-human-cadence timestamps and the annotator-tool collection names). Those
+point collections, 719 points made in VC3D. **An earlier version of this
+paragraph called all 719 "manually clicked", on the strength of
+human-cadence timestamps and the annotator-tool collection names. That is
+true of 99 of them and wrong about the other 620**, and section 10 measures
+what the difference is worth: the 98 relative-winding points (plus one
+absolute anchor) carry a distinct `creation_time` per point, 0.65 to 1.4 s
+apart, which is a person clicking; the 620 `same_wrapNNN` points carry one
+identical timestamp per collection, because VC3D's `SameWrapAnnotationTool`
+writes a whole collection in a single commit. It builds one by
+Otsu-thresholding the displayed slice, skeletonising it, snapping two
+human-chosen endpoints to the skeleton, running Dijkstra between them along
+skeleton pixels, and sampling the resulting path at a fixed spacing
+(`SameWrapAnnotationTool.cpp`, `generatePreview`). So those points are traced
+by machine along the sheet *in the scan*, under human supervision, rather
+than clicked one by one. Those
 annotations lie on the papyrus sheet, so some run along surfaces the sealed
 patches cover: of the 51,679 sealed vertices in the window, 6 (0.01%) lie
 within 2 vox of an annotation point, 70 (0.14%) within tau = 6, and 385
@@ -842,19 +855,225 @@ localization response, the null a two-pass check and the winding-label census.
 Local path prefixes redacted to `<runs>`/`<data>` like the section 7 and 8
 reports; every measured field untouched.
 
+## 10. Winding agreement meets a real winding label
+
+DESIGN.md said of the winding-agreement metric: "**Never exercised on real
+data**", because 0 of the 4,922 PHerc. Paris 4 verified patches carry a
+`winding.tif`. Section 9 ran the channel on real geometry against labels
+manufactured from the reference fit's own assignment, and said in the same
+breath that this was detection, not calibration. This section closes the
+other half: winding evidence on this scroll does exist, in a shape the metric
+was not written for — villa **point collections**, which VC3D writes and
+`fit_spiral` consumes as constraints. `spiralcheck annotations` scores a run
+against them from the exported meshes and the umbilicus, with no checkpoint,
+no torch and no GPU.
+
+### This is not a held-out measurement, and the word is not used below
+
+The three collections scored here are **inputs to the run being scored**. The
+same files are consumed by both runs of section 6 and both twins of section 8;
+section 6 already records the channel and measures its geometric overlap with
+the sealed patches. So this is an input-side check of the same family as
+villa's satisfaction, and every number below is a constraint-satisfaction
+number, not a generalization one. What it is worth is stated plainly in
+"What this establishes" further down; what it is not worth is the held-out
+claim the rest of this document makes, which does not extend here.
+
+Holding a subset of the annotations out would need a refit, which needs a GPU
+this project does not have, so it was not attempted and no partial substitute
+was improvised.
+
+### What the evidence actually is
+
+719 points in three files, and they are not all the same kind of thing. This
+matters enough to lead with, because section 6 previously called all 719
+"manually clicked" and that is wrong for 620 of them:
+
+| file | collections | points | `wind_a` | provenance |
+|---|---:|---:|---|---|
+| `abs_winding.json` | 1 | 1 | 37.0, absolute | one human click |
+| `relative_windings.json` | 16 | 98 | 1..15, relative | **human clicks**: one distinct `creation_time` per point, median gap 0.65-1.4 s |
+| `same_windings.json` | 26 | 620 | `null` (same winding) | **machine-traced under human supervision**: one identical timestamp for every point of a collection |
+
+The 620 come from VC3D's `SameWrapAnnotationTool`
+(`apps/VC3D/volume_viewers/annotation_tools/SameWrapAnnotationTool.cpp`). Its
+`generatePreview` Otsu-thresholds the displayed slice, skeletonises it
+(Guo-Hall thinning), snaps two human-chosen endpoints to the nearest skeleton
+pixel, runs Dijkstra between them over skeleton pixels only, samples the path
+at a fixed spacing, and `commit` writes the whole collection at once — hence
+the single timestamp. The human asserts "this path stays on one wrap" and
+accepts the result; the individual point positions follow the papyrus in the
+scan.
+
+That provenance cuts both ways and both should be said. The trace follows real
+sheet continuity in the CT, which is stronger evidence than a click at a
+guessed position. But its failure mode is correlated with the fit's: where two
+sheets touch, the skeleton can bridge them, the path changes wrap, and the
+"same wrap" assertion is then false in exactly the place a fit also fails. So
+the 620 are supervision, not ground truth, and the 98 clicked points are the
+only unambiguously human labels here.
+
+### The measurement
+
+Villa already scores these constraints, in `satisfaction_metrics.py`
+(`get_unattached_pcl_satisfied_counts`): each collection is id-sorted into a
+strip, mapped through the fitted transform, its shifted radius unwrapped
+across theta=0 crossings, and `unwrapped_shifted - wind_a * dr_per_winding` is
+required to stay within 0.45 pitches of the strip's snapped median (and the
+reprojected target within 6 scan voxels). That needs the checkpoint, torch and
+CUDA, and runs inside the fit.
+
+This suite computes the same quantity from the exported meshes. Where villa
+reads an unwrapped shifted radius out of its transform, we read the continuous
+winding coordinate `u = winding_id + column / columns` off the nearest
+exported face — the coordinate sheet consistency is already built on,
+continuous across the theta seam — and subtract the azimuth the collection
+travels, which `u` accumulates and a winding index must not:
+
+    W = u - theta / 2pi          (theta unwrapped along the collection)
+    N = W - wind_a               (villa's unwrapped_shifted - windings * dr)
+
+`N` is constant along a collection exactly when the fit honours it. Its
+absolute value carries an arbitrary offset (the mesh column origin and the
+umbilicus azimuth origin need not coincide), so only differences are read: a
+point disagrees when its `N` is at least half a turn from the collection's
+median — the same boundary `sheet_components` uses.
+
+Prior art, since this checks the same annotations from a different side.
+Villa's `find_inconsistent_windings.py` derives the winding number a point
+*should* have from these very collections, propagating absolute anchors across
+a patch graph and measuring the holonomy of relative-annotation loops; it
+audits the annotations' mutual consistency, and rebuilds the fit's transform
+from a checkpoint to do it. `vc_calc_surface_metrics` scores one tifxyz
+surface against a ground-truth point collection post hoc, which is the closest
+shipped tool to this one; it takes one surface, not a winding family, and
+needs `vc_tifxyz_winding` first. pscamillo's `winding-ruler` and
+`constraint-gauge` calibrate winding *constraints* against human labels. Here
+the annotations are taken as given and the *output surfaces* are the subject.
+
+### Leakage: do the sealed patches come from these annotations?
+
+They share a naming scheme, so this had to be checked rather than assumed. 16
+of the 94 sealed patches are named `same_wrapNNNNNN_lasagna`, and 898 of the
+4,922 verified patches carry that prefix. Each such patch records its parent
+in its own `meta.json`: `same_wrap000360_lasagna` names the collection
+`same_wrap360`. Read off all 16, the sealed patches descend from collections
+360, 1105, 1111, 1130, 1875, 1877, 1879, 1890, 1894, 1896, 2028, 2031, 2462,
+2468, 2919 and 2962; the 541 fit inputs descend from 101 further collections
+in the range 358-3335. The collections scored here are numbered 37 to 141, and
+**none of them is a parent of any sealed patch or any fit input**.
+
+The numbering is one shared counter, not two coincidentally similar ones, so
+that disjointness means something: 7 of these 26 collections (40, 45, 51, 58,
+59, 60, 61) do have a homonymous patch in the 4,922 — and none of those 7 is
+in the sealed 94 or the 541 either. The remaining channel is geometric
+proximity, which section 6 already measures in the other direction: 6 of
+51,679 sealed vertices lie within 2 vox of an annotation point.
+
+### The result
+
+Run `quality2`, `--variant plain`, tau = 6, z 10600-10900.
+
+| set | collections | points | in window | decidable | agree | agreement |
+|---|---:|---:|---:|---:|---:|---:|
+| all | 43 | 719 | 698 | 338 | 332 | **98.2%** |
+| relative (human clicks) | 17 | 99 | 89 | 82 | 81 | 98.8% |
+| same-winding (machine-traced) | 26 | 620 | 609 | 256 | 251 | 98.0% |
+
+| Expectation, fixed before the run | Observed |
+|---|---|
+| the wrap index is constant along a collection the fit honours, well inside the half-turn boundary | largest spread among agreeing points **0.0155 turns** against a boundary of 0.5: a margin of 32x, so the verdict is not a threshold artefact |
+| a violation is a whole winding, not a fraction | all 6 disagreeing points sit at **exactly +/-1.00 turns**; 3 collections carry them (`same_wrap42` 21/25, `col247` 12/13, `same_wrap47` 20/21) |
+| a point far from every surface gets no verdict | 249 of 587 profiled points declined rather than assigned; 7 collections in the window have no decidable point at all and are reported as undecided, not as 0 |
+| the verdict does not hinge on the tolerance | tau = 2: 200/200 (100%); tau = 4: 284/285 (99.6%); tau = 6: 332/338 (98.2%); tau = 10: 427/441 (96.8%); tau = 20: 644/698 (92.3%) — monotone, no cliff |
+| collections judged on one point prove nothing | 25 of the 28 collections with at least two decidable points are honoured throughout; the 3 single-point verdicts are excluded from that count, being perfect by construction |
+
+### Cross-check against villa's own verdict
+
+The interesting comparison is not the fractions, which measure different
+things, but which collections each instrument refuses to call clean. Of the 24
+collections `satisfied_fitted.json` scores, 2 are undecidable here and are
+excluded; of the remaining 22, the two instruments give the same verdict on
+17 (77.3%). Both flag `col247` and `same_wrap42`. **Neither instrument is
+contradicted by the other in the direction that would matter: there is no
+collection this suite flags that villa calls clean.**
+
+Villa flags five that this suite does not (`col159`, `col160`, `same_wrap44`,
+`same_wrap51`, `same_wrap55`), and the reason is structural rather than a
+miss. Villa's satisfaction is a **conjunction**: right winding band *and*
+within 6 voxels of the reprojected target. A point on the correct winding in
+the wrong place fails villa and passes here. On `same_wrap44` villa reports
+9/22 while all 19 decidable points here sit on the annotated winding, so at
+least 10 points are "right winding, wrong place". That is not a disagreement
+about the geometry; it is this suite separating two failures villa's number
+merges — which is the same specificity question section 9 raises from the
+other end.
+
+`same_wrap63` is the sharpest case in the other direction: villa scores it
+**0/32**, the worst of the run, and every one of its points lies 9-17 vox from
+any exported surface, so this suite declines to judge it. Both instruments say
+something is wrong there, by different mechanisms, and neither says it in the
+other's vocabulary.
+
+### What this establishes, and what it does not
+
+Established: the winding-agreement idea, which had only ever run against
+synthetic fixtures or labels manufactured from the fit itself, produces a
+number against annotations made by a person in VC3D, from a finished run
+folder, on CPU. Its decision margin on real geometry is 32x the noise floor.
+It agrees with villa's independent instrument wherever both can decide, and
+never accuses a collection villa clears.
+
+Not established, and none of this is a technicality:
+
+- **This is not held-out.** The fit consumed these annotations. A 98.2% here
+  is constraint satisfaction measured with a different ruler, not evidence
+  the fit generalises.
+- **Coverage is under half.** 338 of 698 in-window points are decidable at
+  tau = 6. That is mostly a window-edge artefact rather than a property of the
+  fit: 20 of the 26 same-winding collections sit at z = 10604.4, 4.4 vox
+  inside a 300-voxel window whose exported grids are thin at the boundary
+  (per-winding z minima run from 10600.0 to 10613.9). Displacing one
+  collection's 16 points in z, holding y and x, the median distance to the
+  family falls 15.49 -> 10.83 -> 6.67 -> 5.23 -> 3.13 vox at z = 10604.4,
+  10609.4, 10614.4, 10624.4, 10684.4. Read the agreement as a statement about
+  mid-window evidence.
+- **620 of the 719 points are machine-traced**, so "agrees with a human" is
+  precise only for the 98 clicked ones (81 of 82 decidable).
+- **An evenly split collection indicts both sides.** The reference is the
+  collection's median, so a two-point collection whose points disagree reports
+  both as offenders; the metric cannot say which is misplaced because the
+  evidence does not. Pinned in `tests/test_annotations.py`.
+- **One scroll, one window, one run**, and the azimuth correction is computed
+  in scan space about the umbilicus while `u` follows the fit's own deformed
+  grid. The two agree only up to the deformation; `wrap_index_spread` carries
+  that residual and is the number to watch on a fit less well behaved than
+  this one.
+
+Artifact:
+[`examples/winding_annotations_real.json`](examples/winding_annotations_real.json),
+carrying the per-collection rows, the tau sweep, the decidability profile and
+the villa join. Local path prefixes redacted to `<runs>`/`<data>` like sections
+7 to 9; every measured field untouched.
+
 ## Reproduce
 
 ```bash
 uv sync --group dev
-uv run pytest -q                      # 157 tests + 1 strict xfail (a frozen known limit)
+uv run pytest -q                      # 174 tests + 1 strict xfail (a frozen known limit)
 uv run python scripts/mutation_check.py   # 54/54 injected bugs must be detected
 uv run python scripts/real_data_smoke.py <verified_patches_dir> 500
 uv run python scripts/real_overlap_check.py <verified_patches_dir> 150
 uv run python scripts/planted_defects_real.py <meshes> <heldout> \
     --umbilicus <umbilicus.json> --fit-inputs <fit_inputs> \
-    --z-range 10600,10900 --out <dir>   # section 9; ~70 min, 8 scoring passes
+    --z-range 10600,10900 --out <dir>   # section 9; ~70 min, 9 scoring passes
+uv run python scripts/winding_annotations_real.py --meshes <meshes> \
+    --pcl <abs_winding.json> --pcl <relative_windings.json> \
+    --pcl <same_windings.json> --umbilicus <umbilicus.json> \
+    --satisfied <satisfied_fitted.json> --variant plain --tau 6 \
+    --z-range 10600,10900 --out <out.json>   # section 10; one pass
 ```
 
-The planted-defect run scores eight times and peaks around 5 GB, so `--only
+The planted-defect run scores nine times and peaks around 5 GB, so `--only
 <scenario>` runs them one at a time on a small machine; `null` must run first,
 since it writes the reference the others read.

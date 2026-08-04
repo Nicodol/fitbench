@@ -180,27 +180,36 @@ and does not mean.
 
 ## In progress
 
-Three things are being worked on, all of them holes this repository already
-admits to rather than new ideas:
+Holes this repository already admits to, rather than new ideas. Anything
+published here is measured and reproducible; anything in this list is not done
+yet, and this section is how you can tell which is which.
 
-- **Winding agreement against human labels.** No PHerc. Paris 4 verified patch
-  carries a `winding.tif`, so section 9 exercises that metric against labels
-  derived from the fit itself — detection and localization, not calibration.
-  The dataset does carry hand-clicked winding annotations; the next step is
-  measuring a fit against those instead. villa's own
-  `find_inconsistent_windings.py` does this through the fit's transform; the
-  question here is what a mesh-only check can say.
 - **Whether one alarm names one failure mode.** Section 9 found it does not on
   real geometry: a whole-turn error fires four metrics at once. Part of that is
-  the plant's fault (a step-shaped defect is a discontinuity; a real one
-  drifts), and re-running it as a smooth ramp is what will separate the two.
+  the plant's fault — a step-shaped defect is a discontinuity, while a real
+  accumulated error drifts into place. `scripts/planted_defects_real.py` now
+  carries a `pitch_ramp` scenario that reaches the same end state with no
+  radial wall, so the difference between the two measures the cliff's
+  contribution. The measurement has not been published yet.
 - **Scoring a fit that is not ours.** Every report in `examples/` scores our
   own runs on one 300-slice window of one scroll, which is the weakest thing
   about this repository. The tool is producer-agnostic within the tifxyz
-  convention and CPU-only, so a run folder is all it needs.
+  convention and CPU-only, so a run folder is all it needs — but as of early
+  August 2026 the neighbouring community projects publish code rather than
+  output meshes, so there is no third-party run folder to point it at.
 
-Anything already published here is measured and reproducible; anything in this
-list is not done yet, and this section is how you can tell which is which.
+Recently closed, with its caveats rather than without: **winding agreement
+against real annotations**. No PHerc. Paris 4 verified patch carries a
+`winding.tif`, so section 9 could only exercise that metric against labels
+derived from the fit itself. The winding evidence exists in another shape —
+villa point collections — and `spiralcheck annotations` now scores a run
+against them from the exported meshes and the umbilicus, with no checkpoint and
+no GPU (VALIDATION.md section 10). Three things bound that result and are
+stated wherever it is quoted: the annotations are **inputs to the run scored**,
+so it is constraint satisfaction and not a held-out number; under half the
+in-window points are decidable, mostly a window-edge artefact; and 620 of the
+719 points are traced by VC3D's annotation tool along a skeletonised CT slice
+under human supervision rather than clicked one by one.
 
 ## Acknowledgments
 

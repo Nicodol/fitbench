@@ -83,7 +83,10 @@ from spiralcheck.intrinsic import intrinsic_report, resolve_umbilicus
 from spiralcheck.io_tifxyz import INVALID, QuadSurface, load_run_windings, load_tifxyz
 from spiralcheck.metrics import WindingFamilySoup, score_patches
 
-SCENARIOS = ("null", "pitch_band", "one_winding", "sheet_swap", "radial_drift", "hole")
+SCENARIOS = (
+    "null", "pitch_band", "pitch_ramp", "one_winding", "sheet_swap",
+    "radial_drift", "hole",
+)
 
 
 # --------------------------------------------------------------------------
@@ -125,6 +128,52 @@ def displace(
         block[:, 1:] = centre + yx / np.maximum(r, 1e-9)[:, None] * (r + delta)[:, None]
         zyxs[sel] = block
     return QuadSurface(zyxs.astype(np.float32), surface.scale)
+
+
+def displace_by_z_profile(
+    surface: QuadSurface, umbilicus, profile, where: np.ndarray | None = None
+) -> QuadSurface:
+    """Radial displacement that varies with z: ``profile(z)`` voxels outward.
+
+    ``displace`` moves a block of vertices by one constant, which is what makes
+    a step. A fit that accumulates a winding error does not step; it drifts, so
+    the displacement has to be a function of z rather than a mask.
+    """
+    zyxs = surface.zyxs.astype(np.float64).copy()
+    sel = surface.valid_vertex_mask
+    if where is not None:
+        sel = sel & where
+    if sel.any():
+        r, _, centre, yx = _cylindrical(zyxs, sel, umbilicus)
+        block = zyxs[sel]
+        delta = np.asarray(profile(block[:, 0]), dtype=np.float64)
+        block[:, 1:] = centre + yx / np.maximum(r, 1e-9)[:, None] * (r + delta)[:, None]
+        zyxs[sel] = block
+    return QuadSurface(zyxs.astype(np.float32), surface.scale)
+
+
+def plant_pitch_ramp(family, umbilicus, pitch: float, z_band) -> dict[int, QuadSurface]:
+    """Accumulate one pitch smoothly across a z band, and keep it above.
+
+    The same end state as ``pitch_band`` where it matters — above the band the
+    whole family sits one pitch out, so every winding label there is off by one
+    — reached without the radial wall a step leaves at each band edge. The
+    displacement is continuous everywhere; only its slope has a kink, at the
+    two band edges.
+
+    This exists to separate two things ``pitch_band`` merges. When a step makes
+    five alarms fire, part of that is the winding error and part is the cliff,
+    and no reading of the step alone can say how much is which. The ramp keeps
+    the winding error and removes the cliff, so the difference between the two
+    scenarios is the cliff's contribution, measured rather than argued.
+    """
+    z0, z1 = z_band
+    span = max(z1 - z0, 1e-9)
+
+    def profile(z):
+        return pitch * np.clip((z - z0) / span, 0.0, 1.0)
+
+    return {wid: displace_by_z_profile(s, umbilicus, profile) for wid, s in family.items()}
 
 
 def grid_row_spacing(family: dict[int, QuadSurface]) -> float:
@@ -471,6 +520,24 @@ def _print_summary(merged: dict) -> None:
                   f"({w_out['frac_exactly_0_clear_of_the_edges'] * 100:.1f}% clear); "
                   f"distance p50 {q(r['reference_distance_in_band'])} -> "
                   f"{q(r['distance_in_band'])} in band")
+        elif name == "pitch_ramp":
+            w_up = r["winding_shift_above_band"]
+            w_lo = r["winding_shift_below_band"]
+            band = scen.get("pitch_band", {}).get("aggregate")
+            print(f"  pitch_ramp   matched winding {w_up['frac_exactly_minus_1'] * 100:.1f}% "
+                  f"exactly -1 above the band, {w_lo['frac_exactly_0'] * 100:.1f}% "
+                  f"unchanged below; distance p50 "
+                  f"{q(r['reference_distance_above_band'])} -> "
+                  f"{q(r['distance_above_band'])} above the band")
+            if band:
+                a = s["aggregate"]
+                print(f"               collateral, ramp vs step: sheet consistency "
+                      f"{a['mean_sheet_consistency']:.3f} vs "
+                      f"{band['mean_sheet_consistency']:.3f}, normals p90 "
+                      f"{a['normal_angle_p90_deg']:.1f} vs "
+                      f"{band['normal_angle_p90_deg']:.1f} deg, within-tau "
+                      f"{a['frac_within_tau'] * 100:.1f}% vs "
+                      f"{band['frac_within_tau'] * 100:.1f}%")
         elif name == "one_winding":
             inside, total = viol(r)
             print(f"  one_winding  distance p50 on that winding "
@@ -894,6 +961,69 @@ def main(argv: list[str] | None = None) -> int:
                 {"patch_id": pid, "agreement": agree[pid]}
                 for pid in patch_ids if pid not in straddle
             ],
+        })
+
+    if "pitch_ramp" in wanted:
+        fam = plant_pitch_ramp(family, umbilicus, pitch, z_band)
+        scores, agg, rep, deg = run("pitch_ramp", fam, labelled)
+        by_id = {s.patch_id: s for s in scores}
+        d_w, d_d, zs = [], [], []
+        for pid in patch_ids:
+            d_w.append(by_id[pid].point_winding - ref[pid]["winding"])
+            d_d.append(by_id[pid].point_dist)
+            zs.append(geom[pid]["z"])
+        d_w = np.concatenate(d_w)
+        d_d = np.concatenate(d_d)
+        all_z = np.concatenate(zs)
+        ref_d = np.concatenate([ref[pid]["dist"] for pid in patch_ids])
+        # Three zones, not two: below the band the plant changes nothing, above
+        # it the whole family sits one pitch out, and inside it the error is
+        # accumulating and no integer label is defined.
+        below = all_z < z_band[0]
+        above = all_z >= z_band[1]
+        inside = ~below & ~above
+        margin = grid_row_spacing(family)
+        clear = (np.abs(all_z - z_band[0]) > margin) & (np.abs(all_z - z_band[1]) > margin)
+        response("pitch_ramp", scores, agg, rep, deg, {
+            "kind": "one pitch accumulated smoothly across a z band, held above it",
+            "pitch_vox": pitch, "z_band": list(z_band),
+            "slope_vox_per_vox": pitch / (z_band[1] - z_band[0]),
+        }, {
+            "n_points_below_band": int(below.sum()),
+            "n_points_in_ramp": int(inside.sum()),
+            "n_points_above_band": int(above.sum()),
+            "band_edge_margin_vox": margin,
+            "winding_shift_below_band": {
+                "median": float(np.median(d_w[below])) if below.any() else None,
+                "frac_exactly_0": float((d_w[below] == 0).mean()) if below.any() else None,
+            },
+            "winding_shift_above_band": {
+                "median": float(np.median(d_w[above])) if above.any() else None,
+                "frac_exactly_minus_1": (
+                    float((d_w[above] == -1).mean()) if above.any() else None
+                ),
+                "n_clear_of_the_edges": int((above & clear).sum()),
+                "frac_exactly_minus_1_clear_of_the_edges": (
+                    float((d_w[above & clear] == -1).mean())
+                    if (above & clear).any() else None
+                ),
+            },
+            "winding_shift_in_ramp": {
+                "median": float(np.median(d_w[inside])) if inside.any() else None,
+                "frac_exactly_0": float((d_w[inside] == 0).mean()) if inside.any() else None,
+                "frac_exactly_minus_1": (
+                    float((d_w[inside] == -1).mean()) if inside.any() else None
+                ),
+            },
+            "distance_below_band": _quantiles(d_d[below]),
+            "distance_in_ramp": _quantiles(d_d[inside]),
+            "distance_above_band": _quantiles(d_d[above]),
+            "reference_distance_below_band": _quantiles(ref_d[below]),
+            "reference_distance_in_ramp": _quantiles(ref_d[inside]),
+            "reference_distance_above_band": _quantiles(ref_d[above]),
+            "violated_bins": localize_violations(
+                fam, lambda b: z_band[0] <= b[1] < z_band[1]
+            ),
         })
 
     if "one_winding" in wanted:
